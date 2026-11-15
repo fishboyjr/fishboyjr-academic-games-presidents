@@ -2,7 +2,7 @@
 (function () {
   var KEY = "agp-presidents-v1";
   var defaults = {
-    settings: { range: "all", timer: false, theme: true, sound: true },
+    settings: { range: "all", timer: true, theme: true, sound: true },
     facts: {},      // factId -> { r: rightCount, w: wrongCount, last: 1|0, t: timestamp }
     rounds: []      // { t, range, score, max, by: {6:n,4:n,2:n,0:n} }
   };
@@ -15,6 +15,8 @@
       mem = raw ? JSON.parse(raw) : {};
     } catch (e) { mem = {}; }
     mem.settings = Object.assign({}, defaults.settings, mem.settings || {});
+    // v2: the 30-second timer is now on by default (it used to be off for everyone).
+    if (!mem.settings.v) { mem.settings.timer = true; mem.settings.v = 2; }
     mem.facts = mem.facts || {};
     mem.rounds = mem.rounds || [];
     return mem;
@@ -49,6 +51,7 @@
     allFacts: function () { return load().facts; },
     addRound: function (r) { var d = load(); d.rounds.push(r); if (d.rounds.length > 100) d.rounds.shift(); save(); },
     rounds: function () { return load().rounds; },
-    reset: function () { mem = JSON.parse(JSON.stringify(defaults)); save(); }
+    /* Erase progress and round scores; keep the player's settings. */
+    reset: function () { var keep = load().settings; mem = JSON.parse(JSON.stringify(defaults)); mem.settings = keep; save(); }
   };
 })();

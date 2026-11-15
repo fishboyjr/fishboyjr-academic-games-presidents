@@ -55,6 +55,43 @@
   }
   function shake(sel) { var el = app.querySelector(sel); if (el) { el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); } }
 
+  /* ---------- "Do you really want to quit?" ----------
+     While a round or drill is in progress, leaving (a link, the back button, refresh or
+     closing the tab) asks first. The question is shown inside the page, so any running
+     timer keeps going and nothing is lost unless the player chooses Quit. */
+  var task = null, ignoreHash = false;
+  function startTask(opts) { task = { hash: location.hash || "#/", ask: opts.ask }; }
+  function endTask() { task = null; }
+  function taskNeedsAsk() { return task && (typeof task.ask === "function" ? task.ask() : task.ask); }
+  function askQuit(target) {
+    if (document.getElementById("quitBox")) return;
+    var box = document.createElement("div");
+    box.id = "quitBox"; box.className = "modal-back";
+    box.innerHTML = '<div class="modal card" role="alertdialog" aria-modal="true" aria-labelledby="quitTitle">' +
+      '<h2 id="quitTitle">Quit for now?</h2>' + pat("If you quit, this " + (task.label || "round") + " ends and you'll start over next time.") +
+      '<div class="row"><button class="btn" id="keepGoing">Keep playing</button><button class="btn secondary" id="quitNow">Quit</button></div></div>';
+    document.body.appendChild(box);
+    function close() { box.remove(); document.removeEventListener("keydown", onKey); }
+    function onKey(e) { if (e.key === "Escape") close(); }
+    document.addEventListener("keydown", onKey);
+    box.querySelector("#keepGoing").addEventListener("click", close);
+    box.addEventListener("click", function (e) { if (e.target === box) close(); });
+    box.querySelector("#quitNow").addEventListener("click", function () {
+      close(); endTask();
+      if (location.hash === target || (target === "#/" && !location.hash)) route(); else location.hash = target;
+    });
+    box.querySelector("#keepGoing").focus();
+  }
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a || !taskNeedsAsk() || a.closest("#quitBox")) return;
+    e.preventDefault();
+    askQuit(a.getAttribute("href"));
+  }, true);
+  window.addEventListener("beforeunload", function (e) {
+    if (taskNeedsAsk()) { e.preventDefault(); e.returnValue = ""; }   // browser asks "Leave site?" on refresh/close
+  });
+
   function rangePicker() {
     var cur = Store.settings().range;
     return '<div class="seg" role="group" aria-label="Presidents range">' +
@@ -154,6 +191,7 @@
       return bindRangePicker(function () { drill(which); });
     }
     var st = { i: 0, right: 0, selected: [], checked: false };
+    startTask({ ask: function () { return st.i > 0 || st.checked || st.selected.length > 0; } }); task.label = "drill";
 
     function show() {
       var it = items[st.i], need = E.concrete(it.expected).filter(function (n) { return n >= r.lo && n <= r.hi; });
@@ -195,6 +233,7 @@
       });
     }
     function done() {
+      endTask();
       var perfect = st.right === items.length;
       render('<h1>' + esc(title) + '</h1><div class="card scorecard"><div class="big">' + st.right + '</div><div class="of">out of ' + items.length + " correct</div></div>" +
         pat(perfect ? "Perfect! You're a <b>superstar</b>!" : st.right >= items.length * .7 ? "Great job, explorer!" : "Keep practicing. You're getting smarter!") +
@@ -249,7 +288,9 @@
     var qs = E.buildRound(r, s.theme, 12);
     if (!qs.length) return render("<p>Could not build a round.</p>");
     var prevBest = bestFor(r.id);
-    var st = { qi: 0, clue: 0, answer: null, at: null, revealed: false, total: 0, log: [], animated: -1 };
+    // pick = tapped but not locked in (can still change); answer = locked in (final, like circling it in pen)
+    var st = { qi: 0, clue: 0, pick: null, answer: null, at: null, revealed: false, total: 0, log: [], animated: -1, left: 30 };
+    startTask({ ask: true }); task.label = "round";
 
     function pts(k) { return [6, 4, 2][k]; }
     function dots() {
@@ -268,24 +309,21 @@
       var q = qs[st.qi];
       var head = '<div class="qhead"><h2>Question ' + (st.qi + 1) + " of " + qs.length + '</h2><span class="score">⭐ ' + st.total + " pts</span></div>" + dots();
       if (q.official) head += '<p class="official"><span class="badge">OFFICIAL AGLOA PRACTICE QUESTION</span></p>';
-      var answeredEarly = st.answer != null && !st.revealed;
       var cl = '<ol class="clues">' + q.clues.map(function (c, k) {
         var shown = st.revealed || k <= st.clue;
-        if (!shown) {
-          return '<li class="clue wait p' + pts(k) + '"><span class="pts">' + pts(k) + "</span><span>" +
-            (answeredEarly ? "Answer locked in!" : "Clue " + (k + 1) + " is coming&hellip;") + "</span></li>";
-        }
+        if (!shown) return '<li class="clue wait p' + pts(k) + '"><span class="pts">' + pts(k) + "</span><span>Clue " + (k + 1) + " is coming&hellip;</span></li>";
         return '<li class="clue p' + pts(k) + (k === st.clue && !st.revealed && st.animated !== st.clue ? " now" : "") + '"><span class="pts">' + pts(k) + "</span><span>" +
           (st.revealed ? '<span class="tag">' + esc(c.src) + "</span>" : "") + esc(c.text) + "</span></li>";
       }).join("") + "</ol>";
       var body;
       if (!st.revealed) {
-        var timer = s.timer ? '<div class="timer" aria-hidden="true"><i id="bar"></i></div>' : "";
-        body = cl + timer + '<div class="prompt">' + (st.answer == null ? "Tap a president now for <b>" + pts(st.clue) + " points</b>, or wait for the next clue." :
-          "Locked in for <b>" + pts(st.at) + " points</b>. Check it, or keep reading the clues.") + "</div>" +
-          tiles(r, { selected: st.answer != null ? [st.answer] : [], disabled: st.answer != null }) +
-          '<div class="sticky-actions">' + (st.answer != null
-            ? '<button class="btn" id="reveal">Check it ✓</button>' + (st.clue < 2 ? '<button class="btn secondary" id="nextclue">Next clue</button>' : "")
+        var timer = s.timer ? '<div class="timer" aria-hidden="true"><i id="bar" style="width:' + (st.left / 30 * 100) + '%"></i></div>' : "";
+        body = cl + timer + '<div class="prompt">' + (st.pick == null
+            ? "Tap a president, then lock it in for <b>" + pts(st.clue) + " points</b>. Or wait for the next clue."
+            : "You picked <b>#" + st.pick + "</b>. Tap another to change it, or lock it in for <b>" + pts(st.clue) + " points</b>.") + "</div>" +
+          tiles(r, { selected: st.pick != null ? [st.pick] : [] }) +
+          '<div class="sticky-actions">' + (st.pick != null
+            ? '<button class="btn" id="lock">Lock in #' + st.pick + " ✓</button>" + (st.clue < 2 ? '<button class="btn secondary" id="nextclue">Next clue</button>' : "")
             : '<button class="btn secondary" id="nextclue">' + (st.clue < 2 ? "Next clue &rarr;" : "Show answer") + "</button>") + "</div>";
       } else {
         var res = result();
@@ -303,28 +341,33 @@
           '<div class="sticky-actions"><button class="btn" id="nextq">' + (st.qi + 1 < qs.length ? "Next question &rarr;" : "See my score!") + "</button></div>";
       }
       // Stay in place while reading clues and answering; jump to the top for a new question or the result.
-      render(head + body, !st.revealed && !(st.clue === 0 && st.answer == null));
+      render(head + body, !st.revealed && !(st.clue === 0 && st.pick == null));
       st.animated = st.clue;   // a clue slides in only the first time it appears
-      if (!st.revealed && s.timer && st.answer == null) startTimer();
+      if (!st.revealed && s.timer) startTimer();
       on(".tile", "click", function (e) {
-        if (st.answer != null) return;
         Sound.tap();
-        st.answer = +e.currentTarget.getAttribute("data-n"); st.at = st.clue; show();
+        var n = +e.currentTarget.getAttribute("data-n");
+        st.pick = st.pick === n ? null : n;    // tap again to un-pick
+        show();
       });
+      on("#lock", "click", lockIn);
       on("#nextclue", "click", function () { advance(); });
-      on("#reveal", "click", reveal);
       on("#nextq", "click", nextQuestion);
     }
+    /* The 30-second timer keeps its time when the screen redraws (e.g. changing a pick). */
     function startTimer() {
-      var left = 30, bar = document.getElementById("bar");
+      var bar = document.getElementById("bar");
       timerHandle = setInterval(function () {
-        left--;
-        if (bar) bar.style.width = Math.max(0, left / 30 * 100) + "%";
-        if (left <= 0) { stopTimer(); advance(); }
+        st.left--;
+        if (bar) bar.style.width = Math.max(0, st.left / 30 * 100) + "%";
+        if (st.left <= 0) { stopTimer(); advance(true); }
       }, 1000);
     }
-    function advance() {
-      if (st.clue < 2) { st.clue++; Sound.flip(); show(); return; }
+    function lockIn() { st.answer = st.pick; st.at = st.clue; reveal(); }
+    function advance(timeUp) {
+      if (st.clue < 2) { st.clue++; st.left = 30; Sound.flip(); show(); return; }
+      // Time ran out on the last clue: a picked president counts as the answer (2 points if right).
+      if (timeUp && st.pick != null) return lockIn();
       reveal();
     }
     function reveal() {
@@ -337,10 +380,11 @@
       else { Sound.wrong(); shake("#tiles"); }
     }
     function nextQuestion() {
-      st.qi++; st.clue = 0; st.answer = null; st.at = null; st.revealed = false; st.animated = -1;
+      st.qi++; st.clue = 0; st.pick = null; st.answer = null; st.at = null; st.revealed = false; st.animated = -1; st.left = 30;
       if (st.qi < qs.length) { Sound.flip(); show(); } else results();
     }
     function results() {
+      endTask();
       var by = { 6: 0, 4: 0, 2: 0, 0: 0 }, max = qs.length * 6;
       st.log.forEach(function (x) { by[x.got]++; });
       Store.addRound({ t: Date.now(), range: r.id, score: st.total, max: max, by: by });
@@ -451,8 +495,10 @@
   }
 
   /* ---------- Settings ---------- */
-  function settings() {
+  function settings(notice) {
     var s = Store.settings();
+    var rounds = Store.rounds().length, facts = Object.keys(Store.allFacts()).length;
+    var misses = E.missedItems(RANGES.all).length;
     function sw(id, on, title, help) {
       return '<label class="switch"><input type="checkbox" id="' + id + '"' + (on ? " checked" : "") + "><span><b>" + title + "</b><small>" + help + "</small></span></label>";
     }
@@ -460,11 +506,16 @@
       '<h1>Settings</h1>' +
       '<div class="card">' +
         sw("sound", s.sound, "🔊 Sound effects", "Stamps, cheers and page flips.") +
-        sw("timer", s.timer, "⏱️ 30-second timer", "Each clue in a tournament round gets 30 seconds, like a real round.") +
+        sw("timer", s.timer, "⏱️ 30-second timer", "Each clue in a tournament round gets 30 seconds, like a real round. Turn off to take as long as you like.") +
         sw("theme", s.theme, "🎩 Theme clues", "Put Secretaries of State in the 4- and 2-point clues (2026-27 theme).") +
+        '<div style="padding-top:10px"><button class="btn secondary" id="test">Test the sound</button><p class="small" id="soundNote" role="status" style="color:var(--red);margin:8px 0 0"></p></div>' +
       "</div>" +
-      '<button class="btn secondary" id="test">Test the sound</button><p class="small" id="soundNote" role="status" style="color:var(--red);margin-top:8px"></p>' +
-      '<p class="small muted" style="margin-top:14px">Reset buttons are on the <a href="#/about">About</a> page.</p>'
+      '<div class="card"><span class="tape" style="left:64%"></span><h3>Your progress</h3><p>' + facts + " facts practiced, " + rounds + ' rounds played. Progress is saved only on this device.</p>' +
+        '<div id="resetArea"><div class="row"><button class="btn secondary" id="resetMisses"' + (misses ? "" : " disabled") + ">Reset my misses" + (misses ? " (" + misses + ")" : "") + "</button>" +
+        '<button class="btn secondary" id="reset">Reset my progress</button></div></div>' +
+        (notice ? '<p class="small" role="status" style="color:var(--green);font-weight:800;margin:10px 0 0">' + notice + "</p>" : "") +
+        '<p class="small muted" style="margin:10px 0 0">Reset my misses empties the Review My Misses list but keeps everything else. Reset my progress erases all progress and round scores (these settings stay).</p></div>',
+      notice !== undefined   // stay in place after a reset or Cancel
     );
     on("#sound", "change", function (e) { Store.set("sound", e.target.checked); if (e.target.checked) Sound.correct(6); });
     on("#timer", "change", function (e) { Store.set("timer", e.target.checked); Sound.tap(); });
@@ -475,27 +526,6 @@
       var n = app.querySelector("#soundNote");
       if (n) n.textContent = Store.settings().sound ? "" : "Sound is off. Turn on Sound effects first.";
     });
-  }
-
-  /* ---------- About ---------- */
-  function about(notice) {
-    var rounds = Store.rounds().length, facts = Object.keys(Store.allFacts()).length;
-    var misses = E.missedItems(RANGES.all).length;
-    render(
-      '<h1>About</h1>' +
-      '<div class="card"><span class="tape"></span><h3>How PRESIDENTS is played</h3><p>A reader gives three clues about one president, each read twice with 30 seconds to think. Answer after the first clue for 6 points, the second for 4, or the third for 2. A wrong answer scores 0, and answers can\'t be changed. A round has 12 questions. You may use only the official Presidents Chart.</p>' +
-      '<p style="margin:0">In 2026-27, Elementary and Middle Divisions play Group B: #16&ndash;24 in the first round and #25&ndash;33 in the second. The theme for all divisions is Secretaries of State. The 4- or 2-point clues may mention a Secretary of State.</p></div>' +
-      '<div class="card"><span class="tape" style="left:20%"></span><h3>Where the questions come from</h3><p>All content comes from the Academic Games Leagues of America (AGLOA):</p><ul class="facts">' +
-        '<li><a href="https://agloa.org/pres-docs/" target="_blank" rel="noopener">Presidents Rules and Documents</a>: the 2026-27 rules, the Presidents Chart, the 25 Group B worksheets, and the official practice questions.</li>' +
-        '<li><a href="https://agloa.org/category/pres-quiz/" target="_blank" rel="noopener">AGLOA Presidents Quiz archive</a> (2015-2021).</li></ul>' +
-        '<p class="small muted" style="margin:8px 0 0">Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
-      '<div class="card"><span class="tape" style="left:64%"></span><h3>Your progress</h3><p>' + facts + " facts practiced, " + rounds + ' rounds played. Progress is saved only in this browser.</p>' +
-        '<div id="resetArea"><div class="row"><button class="btn secondary" id="resetMisses"' + (misses ? "" : " disabled") + ">Reset my misses" + (misses ? " (" + misses + ")" : "") + "</button>" +
-        '<button class="btn secondary" id="reset">Reset my progress</button></div></div>' +
-        (notice ? '<p class="small" role="status" style="color:var(--green);font-weight:800;margin:10px 0 0">' + notice + "</p>" : "") +
-        '<p class="small muted" style="margin:10px 0 0">Reset my misses empties the Review My Misses list but keeps everything else. Reset my progress erases all progress and round scores.</p></div>' +
-      pat("Hi! I'm <b>Pat</b>, short for Patriot. Happy studying!"), notice !== undefined   // stay in place after a reset or Cancel
-    );
     /* Ask "Are you sure?" inside the page instead of a browser pop-up, which some
        app previews and home-screen apps block (they silently answer "no"). */
     function ask(question, yesLabel, action, done) {
@@ -503,8 +533,8 @@
       area.innerHTML = '<div class="feedback no" role="alertdialog" aria-label="Are you sure?"><div class="head">Are you sure?</div>' + question +
         '<div class="row" style="margin-top:10px"><button class="btn" id="confirmYes">' + yesLabel + '</button>' +
         '<button class="btn secondary" id="confirmNo">Cancel</button></div></div>';
-      area.querySelector("#confirmNo").addEventListener("click", function () { about(""); });
-      area.querySelector("#confirmYes").addEventListener("click", function () { action(); Sound.tap(); about(done); });
+      area.querySelector("#confirmNo").addEventListener("click", function () { settings(""); });
+      area.querySelector("#confirmYes").addEventListener("click", function () { action(); Sound.tap(); settings(done); });
       area.querySelector("#confirmNo").focus();
     }
     on("#resetMisses", "click", function () {
@@ -517,10 +547,33 @@
     });
   }
 
+  /* ---------- About ---------- */
+  function about() {
+    render(
+      '<h1>About</h1>' +
+      '<div class="card"><span class="tape"></span><h3>How PRESIDENTS is played</h3><p>A reader gives three clues about one president, each read twice with 30 seconds to think. Answer after the first clue for 6 points, the second for 4, or the third for 2. A wrong answer scores 0, and answers can\'t be changed. A round has 12 questions. You may use only the official Presidents Chart.</p>' +
+      '<p style="margin:0">In 2026-27, Elementary and Middle Divisions play Group B: #16&ndash;24 in the first round and #25&ndash;33 in the second. The theme for all divisions is Secretaries of State. The 4- or 2-point clues may mention a Secretary of State.</p></div>' +
+      '<div class="card"><span class="tape" style="left:20%"></span><h3>Where the questions come from</h3><p>All content comes from the Academic Games Leagues of America (AGLOA):</p><ul class="facts">' +
+        '<li><a href="https://agloa.org/pres-docs/" target="_blank" rel="noopener">Presidents Rules and Documents</a>: the 2026-27 rules, the Presidents Chart, the 25 Group B worksheets, and the official practice questions.</li>' +
+        '<li><a href="https://agloa.org/category/pres-quiz/" target="_blank" rel="noopener">AGLOA Presidents Quiz archive</a> (2015-2021).</li></ul>' +
+        '<p class="small muted" style="margin:8px 0 0">Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
+      '<p class="small muted">Sound, timer and reset options are in <a href="#/settings">Settings</a>.</p>' +
+      pat("Hi! I'm <b>Pat</b>, short for Patriot. Happy studying!")
+    );
+  }
+
   function notFound() { render('<h1>Page not found</h1>' + pat("Oops! Let's head home.") + '<a class="btn" href="#/">Home</a>'); }
 
   /* ---------- router ---------- */
   function route() {
+    if (ignoreHash) { ignoreHash = false; return; }
+    if (taskNeedsAsk() && location.hash !== task.hash) {
+      var target = location.hash || "#/";
+      ignoreHash = true; location.hash = task.hash;     // stay on the task...
+      askQuit(target);                                  // ...and ask before leaving
+      return;
+    }
+    if (task && location.hash !== task.hash) endTask();
     var h = location.hash.replace(/^#\/?/, "").split("/");
     Array.prototype.forEach.call(document.querySelectorAll(".topnav a"), function (a) {
       a.classList.toggle("active", a.getAttribute("href") === "#/" + (h[0] || ""));
