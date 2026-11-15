@@ -90,7 +90,11 @@ main { outline: none; }
 
 /* ---------- Pat the eagle ---------- */
 .pat { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
-.pat .bird { font-size: 2.2rem; line-height: 1; flex: 0 0 auto; }
+.pat .bird { width: 56px; height: 60px; flex: 0 0 auto; overflow: visible; }
+.pat .bird.cheer { animation: hop .5s ease-out; }
+.pat .bird.oops { animation: wobble .5s ease-out; }
+@keyframes hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
+@keyframes wobble { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-6deg); } 60% { transform: rotate(5deg); } }
 .pat .say {
   position: relative; background: var(--card); border: 2px solid var(--ink); border-radius: 14px;
   padding: 4px 12px 2px; font: 1.3rem/1.2 var(--hand);

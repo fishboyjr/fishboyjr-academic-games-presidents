@@ -32,7 +32,11 @@
     wrong: ["So close! You'll get the next one.", "Good try! Now you know.", "Shake it off, explorer!", "Every miss makes you smarter!"],
     none: ["No worries. Now you know!", "Next time, take a guess!"]
   };
-  function pat(text) { return '<div class="pat"><span class="bird" aria-hidden="true">🦅</span><span class="say"><span class="sr-only">Pat says: </span>' + text + "</span></div>"; }
+  /* mood: "happy" (default), "cheer" (right answer) or "oops" (miss). Drawings live in index.html. */
+  function pat(text, mood) {
+    return '<div class="pat"><svg class="bird ' + (mood || "happy") + '" aria-hidden="true" focusable="false"><use href="#pat-' + (mood || "happy") + '"/></svg>' +
+      '<span class="say"><span class="sr-only">Pat says: </span>' + text + "</span></div>";
+  }
 
   /* Ranks for a 12-question round (out of 72) */
   var RANKS = [["Voter", 0, "🗳️"], ["Mayor", 24, "🏙️"], ["Governor", 36, "🏛️"], ["Senator", 48, "📜"], ["President", 60, "🦅"]];
@@ -68,7 +72,7 @@
     var box = document.createElement("div");
     box.id = "quitBox"; box.className = "modal-back";
     box.innerHTML = '<div class="modal card" role="alertdialog" aria-modal="true" aria-labelledby="quitTitle">' +
-      '<h2 id="quitTitle">Quit for now?</h2>' + pat("If you quit, this " + (task.label || "round") + " ends and you'll start over next time.") +
+      '<h2 id="quitTitle">Quit for now?</h2>' + pat("If you quit, this " + (task.label || "round") + " ends and you'll start over next time.", "oops") +
       '<div class="row"><button class="btn" id="keepGoing">Keep playing</button><button class="btn secondary" id="quitNow">Quit</button></div></div>';
     document.body.appendChild(box);
     function close() { box.remove(); document.removeEventListener("keydown", onKey); }
@@ -186,7 +190,7 @@
     }
     var isReview = which === "review" || which.indexOf("review-") === 0;
     if (!items.length) {
-      render('<h1>' + esc(title) + "</h1>" + pat(isReview ? "No misses here for this range. Nice work!" : "Nothing in this range. Pick another one!") +
+      render('<h1>' + esc(title) + "</h1>" + pat(isReview ? "No misses here for this range. Nice work!" : "Nothing in this range. Pick another one!", isReview ? "cheer" : "oops") +
         rangePicker() + '<p style="margin-top:14px"><a class="btn" href="' + (isReview ? "#/review" : "#/") + '">' + (isReview ? "Back to my misses" : "Home") + "</a></p>");
       return bindRangePicker(function () { drill(which); });
     }
@@ -209,7 +213,7 @@
           esc(it.expected.map(E.label).join(", ")) +
           (it.note ? '<span class="note">' + esc(it.note) + "</span>" : "") + "</div>" +
           tiles(r, { right: need, wrong: wrong, disabled: true, dimOthers: true }) + "</div>" +
-          pat(pick(ok ? PAT.right : PAT.wrong)) +
+          pat(pick(ok ? PAT.right : PAT.wrong), ok ? "cheer" : "oops") +
           '<div class="sticky-actions"><button class="btn" id="next">' + (st.i + 1 < items.length ? "Next &rarr;" : "Finish") + "</button></div>";
       }
       render(head + body, st.checked || st.selected.length > 0);
@@ -236,7 +240,7 @@
       endTask();
       var perfect = st.right === items.length;
       render('<h1>' + esc(title) + '</h1><div class="card scorecard"><div class="big">' + st.right + '</div><div class="of">out of ' + items.length + " correct</div></div>" +
-        pat(perfect ? "Perfect! You're a <b>superstar</b>!" : st.right >= items.length * .7 ? "Great job, explorer!" : "Keep practicing. You're getting smarter!") +
+        pat(perfect ? "Perfect! You're a <b>superstar</b>!" : st.right >= items.length * .7 ? "Great job, explorer!" : "Keep practicing. You're getting smarter!", st.right >= items.length * .7 ? "cheer" : "happy") +
         '<div class="row"><button class="btn" id="again">' + (isReview ? "Practice misses again" : "Try again") + "</button>" +
         (isReview ? '<a class="btn secondary" href="#/review">My misses</a>' : '<a class="btn secondary" href="#/drills">All drills</a>') +
         '<a class="btn ghost" href="#/">Home</a></div>');
@@ -262,7 +266,7 @@
               '<span class="score">' + counts[s.id] + "</span></a>";
           }).join("") + "</div>" +
           '<p class="small muted" style="margin-top:14px">A fact leaves this list once your latest answer is right and you have gotten it right at least as many times as you have missed it.</p>'
-        : pat("No misses for this range. Try a drill or a tournament round!") + '<a class="btn" href="#/drills">Worksheet drills</a>')
+        : pat("No misses for this range. Try a drill or a tournament round!", "cheer") + '<a class="btn" href="#/drills">Worksheet drills</a>')
     );
     bindRangePicker(reviewMenu);
   }
@@ -335,7 +339,7 @@
           (q.note ? '<span class="note">' + esc(q.note) + "</span>" : "") +
           (res.ok && res.acc.length > 1 ? '<span class="note">Cleveland was president twice: #22 (1885-1889) and #24 (1893-1897). At a tournament, circle the right term.</span>' : "") +
           "</div>";
-        var say = pat(pick(res.ok ? (res.got === 6 ? PAT.six : PAT.right) : st.answer == null ? PAT.none : PAT.wrong));
+        var say = pat(pick(res.ok ? (res.got === 6 ? PAT.six : PAT.right) : st.answer == null ? PAT.none : PAT.wrong), res.ok ? "cheer" : "oops");
         body = '<div style="position:relative">' + stamp + feedback + cl + "</div>" + say +
           tiles(r, { right: [q.answer], wrong: st.answer != null && !res.ok ? [st.answer] : [], disabled: true, dimOthers: true }) +
           '<div class="sticky-actions"><button class="btn" id="nextq">' + (st.qi + 1 < qs.length ? "Next question &rarr;" : "See my score!") + "</button></div>";
@@ -403,7 +407,7 @@
           '<div><b style="color:var(--navy)">' + by[4] + "</b><span>4-pointers</span></div>" +
           '<div><b style="color:var(--gold-dk)">' + by[2] + "</b><span>2-pointers</span></div>" +
           "<div><b>" + by[0] + "</b><span>missed</span></div></div>" +
-        pat(msg) +
+        pat(msg, record || !next || k >= 3 ? "cheer" : "happy") +
         '<div class="row" style="margin-bottom:14px"><button class="btn" id="again">Play again</button>' +
           (missed.length ? '<button class="btn secondary" id="missed">Review the ' + (missed.length === 1 ? "one" : missed.length) + " I missed</button>" : "") +
           '<a class="btn ghost" href="#/">Home</a></div>' +
@@ -562,7 +566,7 @@
     );
   }
 
-  function notFound() { render('<h1>Page not found</h1>' + pat("Oops! Let's head home.") + '<a class="btn" href="#/">Home</a>'); }
+  function notFound() { render('<h1>Page not found</h1>' + pat("Oops! Let's head home.", "oops") + '<a class="btn" href="#/">Home</a>'); }
 
   /* ---------- router ---------- */
   function route() {
