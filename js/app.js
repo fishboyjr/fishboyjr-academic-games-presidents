@@ -9,12 +9,51 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function range() { return RANGES[Store.settings().range] || RANGES.all; }
   function presidentsIn(r) { return P.filter(function (p) { return p.n >= r.lo && p.n <= r.hi; }); }
   function sheetById(id) { for (var i = 0; i < SHEETS.length; i++) if (SHEETS[i].id === id) return SHEETS[i]; return null; }
+  function sortedSheets(list) { return list.slice().sort(function (a, b) { return parseInt(a.id.slice(1), 10) - parseInt(b.id.slice(1), 10); }); }
   function stopTimer() { if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
-  function render(html) { stopTimer(); app.innerHTML = '<div class="wrap">' + html + "</div>"; window.scrollTo(0, 0); }
+  function render(html, keepScroll) {
+    stopTimer();
+    Array.prototype.forEach.call(document.querySelectorAll(".confetti"), function (c) { c.remove(); });
+    app.innerHTML = '<div class="wrap">' + html + "</div>";
+    if (!keepScroll) window.scrollTo(0, 0);
+  }
   function on(sel, ev, fn) { Array.prototype.forEach.call(app.querySelectorAll(sel), function (el) { el.addEventListener(ev, fn); }); }
+  function bestFor(rangeId) { return Store.rounds().filter(function (x) { return x.range === rangeId; }).reduce(function (m, x) { return Math.max(m, x.score); }, -1); }
+
+  /* Pat the eagle ("Pat" is short for Patriot) */
+  var PAT = {
+    hello: ["Let's go!", "Ready, explorer?", "Let's learn some presidents!", "I believe in you!"],
+    six: ["On the FIRST clue? Wow!", "Six points! Eagle eyes!", "That's presidential!"],
+    right: ["Great detective work!", "You nailed it!", "Way to go!", "Nice thinking!", "Correct-a-mundo!"],
+    wrong: ["So close! You'll get the next one.", "Good try! Now you know.", "Shake it off, explorer!", "Every miss makes you smarter!"],
+    none: ["No worries. Now you know!", "Next time, take a guess!"]
+  };
+  function pat(text) { return '<div class="pat"><span class="bird" aria-hidden="true">🦅</span><span class="say"><span class="sr-only">Pat says: </span>' + text + "</span></div>"; }
+
+  /* Ranks for a 12-question round (out of 72) */
+  var RANKS = [["Voter", 0, "🗳️"], ["Mayor", 24, "🏙️"], ["Governor", 36, "🏛️"], ["Senator", 48, "📜"], ["President", 60, "🦅"]];
+  function rankIndex(score) { var k = 0; RANKS.forEach(function (r, i) { if (score >= r[1]) k = i; }); return k; }
+
+  function confetti(n) {
+    var colors = ["#e63946", "#1f3a93", "#ffd166", "#ffffff", "#2a9d8f"];
+    var box = document.createElement("div"); box.className = "confetti"; box.setAttribute("aria-hidden", "true");
+    for (var i = 0; i < (n || 60); i++) {
+      var c = document.createElement("i");
+      c.style.left = Math.random() * 100 + "vw";
+      c.style.background = pick(colors);
+      c.style.animationDuration = 1.4 + Math.random() * 1.4 + "s";
+      c.style.animationDelay = Math.random() * 0.4 + "s";
+      c.style.setProperty("--spin", (Math.random() * 720 - 360) + "deg");
+      box.appendChild(c);
+    }
+    document.body.appendChild(box);
+    setTimeout(function () { box.remove(); }, 3500);
+  }
+  function shake(sel) { var el = app.querySelector(sel); if (el) { el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); } }
 
   function rangePicker() {
     var cur = Store.settings().range;
@@ -26,15 +65,16 @@
       }).join("") + "</div>";
   }
   function bindRangePicker(rerender) {
-    on("[data-range]", "click", function (e) { Store.set("range", e.currentTarget.getAttribute("data-range")); rerender(); });
+    on("[data-range]", "click", function (e) { Sound.tap(); Store.set("range", e.currentTarget.getAttribute("data-range")); rerender(); });
   }
 
   function tiles(r, opts) {
     opts = opts || {};
-    return '<div class="grid" role="group" aria-label="Choose a president">' + presidentsIn(r).map(function (p) {
+    return '<div class="grid" id="tiles" role="group" aria-label="Choose a president">' + presidentsIn(r).map(function (p) {
       var cls = "tile";
       if (opts.right && opts.right.indexOf(p.n) >= 0) cls += " right";
       else if (opts.wrong && opts.wrong.indexOf(p.n) >= 0) cls += " wrong";
+      else if (opts.dimOthers) cls += " dim";
       var pressed = opts.selected && opts.selected.indexOf(p.n) >= 0;
       return '<button type="button" class="' + cls + '" data-n="' + p.n + '" aria-pressed="' + !!pressed + '"' + (opts.disabled ? " disabled" : "") + ">" +
         '<span class="num">' + p.n + '</span><span class="nm">' + esc(p.short) + "</span></button>";
@@ -54,22 +94,21 @@
 
   /* ---------- Home ---------- */
   function home() {
-    var r = range(), missed = E.missedItems(r).length;
-    var rounds = Store.rounds().filter(function (x) { return x.range === r.id; });
-    var best = rounds.reduce(function (m, x) { return Math.max(m, x.score); }, 0);
+    var r = range(), missed = E.missedItems(r).length, best = bestFor(r.id);
     render(
-      '<h1>Practice for PRESIDENTS</h1>' +
-      '<p class="muted">2026-27 Elementary &amp; Middle: Presidents #16&ndash;33. Theme: <strong>Secretaries of State</strong>.</p>' +
-      '<div class="card"><div class="prompt">Which presidents are you studying?</div>' + rangePicker() +
-      '<p class="small muted" style="margin:8px 0 0">At tournaments, round 1 uses #16&ndash;24 and round 2 uses #25&ndash;33.</p></div>' +
+      '<div class="hello"><div><h1>Hi, explorer!</h1>' +
+        '<p class="muted" style="margin:0">Presidents #16&ndash;33 &middot; Theme: <b>Secretaries of State</b></p></div></div>' +
+      pat(pick(PAT.hello)) +
+      (best >= 0 ? '<p><span class="chip">🔥 Best round (' + esc(r.id === "all" ? "all" : "#" + r.lo + "-" + r.hi) + "): " + best + "</span></p>" : "") +
+      rangePicker() +
+      '<p class="small muted" style="margin:6px 0 0">Tournaments use #16&ndash;24 in round 1 and #25&ndash;33 in round 2.</p>' +
       '<div class="menu">' +
-        '<a href="#/round"><strong>Tournament Round</strong>12 questions, 3 clues each. Answer early for 6 points, wait for 4 or 2.' +
-          (rounds.length ? '<br><span class="small muted">Best: ' + best + " / 72</span>" : "") + "</a>" +
-        '<a class="theme" href="#/drill/B14"><strong>Secretaries of State <span class="badge">THEME</span></strong>Match each Secretary of State to his president.</a>' +
-        '<a href="#/drills"><strong>Worksheet Drills</strong>All 25 AGLOA Group B worksheets: wives, VPs, scandals, wars, slogans, and more.</a>' +
-        '<a href="#/drill/mix"><strong>Quick Mix</strong>10 random facts from every worksheet.</a>' +
-        '<a class="review" href="#/review"><strong>Review My Misses</strong>' + (missed ? missed + " fact" + (missed === 1 ? "" : "s") + " to practice again." : "Nothing missed yet. Nice!") + "</a>" +
-        '<a href="#/study"><strong>Study a President</strong>Chart facts, Secretaries of State, VPs, wives, and every worksheet fact.</a>' +
+        '<a class="mi" href="#/round"><span class="ic">🏆</span><span><strong>Tournament Round</strong><span class="d">12 questions &middot; 6, 4 or 2 points</span></span></a>' +
+        '<a class="mi blue theme" href="#/drill/B14"><span class="ic">🎩</span><span><strong>Sec. of State <span class="stamp">THEME</span></strong><span class="d">Match each one to his president</span></span></a>' +
+        '<a class="mi gold" href="#/drills"><span class="ic">📚</span><span><strong>Worksheet Drills</strong><span class="d">All 25 AGLOA Group B worksheets</span></span></a>' +
+        '<a class="mi" href="#/drill/mix"><span class="ic">🎲</span><span><strong>Quick Mix</strong><span class="d">10 random facts</span></span></a>' +
+        '<a class="mi blue" href="#/review"><span class="ic">🔁</span><span><strong>Review My Misses</strong><span class="d">' + (missed ? missed + " to practice" : "Nothing missed yet. Nice!") + "</span></span></a>" +
+        '<a class="mi gold" href="#/study"><span class="ic">🔍</span><span><strong>Study a President</strong><span class="d">Every fact for each president</span></span></a>' +
       "</div>"
     );
     bindRangePicker(home);
@@ -78,18 +117,17 @@
   /* ---------- Drills ---------- */
   function drillsMenu() {
     var r = range();
-    var list = SHEETS.slice().sort(function (a, b) { return parseInt(a.id.slice(1), 10) - parseInt(b.id.slice(1), 10); });
     render(
-      '<h1>Worksheet Drills</h1><div class="card">' + rangePicker() + "</div>" +
-      '<div class="sheetlist">' + list.map(function (s) {
+      '<h1>Worksheet Drills</h1>' + rangePicker() + '<div style="height:14px"></div>' +
+      '<div class="sheetlist">' + sortedSheets(SHEETS).map(function (s) {
         var pr = sheetProgress(s, r);
         if (!pr.total) return "";
         var pct = Math.round(100 * pr.known / pr.total);
         return '<a href="#/drill/' + s.id + '"><span><span class="id">' + s.id + "</span>" + esc(s.title) +
-          (s.theme ? ' <span class="badge">THEME</span>' : "") + '<br><span class="small muted">' + pr.known + " / " + pr.total + " known</span></span>" +
+          (s.theme ? '<span class="stamp">THEME</span>' : "") + '<br><span class="small muted">' + pr.known + " / " + pr.total + " known</span></span>" +
           '<span class="meter" aria-hidden="true"><i style="width:' + pct + '%"></i></span></a>';
       }).join("") + "</div>" +
-      '<p class="small muted" style="margin-top:14px">Worksheets B9-B11 cover only part of the range. "Known" means you got it right the last time.</p>'
+      '<p class="small muted" style="margin-top:14px">"Known" means you got it right the last time. Worksheets B9-B11 cover only part of the range.</p>'
     );
     bindRangePicker(drillsMenu);
   }
@@ -103,8 +141,7 @@
       if (!rs) return notFound();
       items = E.shuffle(E.missedItems(r, rs.id));
       title = "Misses: " + rs.title;
-    }
-    else {
+    } else {
       var s = sheetById(which);
       if (!s) return notFound();
       items = E.shuffle(E.drillItems({ range: r, sheets: [s.id] }));
@@ -112,32 +149,34 @@
     }
     var isReview = which === "review" || which.indexOf("review-") === 0;
     if (!items.length) {
-      return render('<h1>' + esc(title) + '</h1><div class="card"><p>' +
-        (isReview ? "No missed facts here for this range. Nice work!" : "No items in this range. Pick another range.") +
-        '</p>' + rangePicker() + '</div><a class="btn" href="' + (isReview ? "#/review" : "#/") + '">' + (isReview ? "Back to my misses" : "Home") + "</a>"), bindRangePicker(function () { drill(which); });
+      render('<h1>' + esc(title) + "</h1>" + pat(isReview ? "No misses here for this range. Nice work!" : "Nothing in this range. Pick another one!") +
+        rangePicker() + '<p style="margin-top:14px"><a class="btn" href="' + (isReview ? "#/review" : "#/") + '">' + (isReview ? "Back to my misses" : "Home") + "</a></p>");
+      return bindRangePicker(function () { drill(which); });
     }
     var st = { i: 0, right: 0, selected: [], checked: false };
 
     function show() {
       var it = items[st.i], need = E.concrete(it.expected).filter(function (n) { return n >= r.lo && n <= r.hi; });
       var multi = it.expected.length > 1;
-      var head = '<div class="qhead"><h2 style="margin:0">' + esc(title) + '</h2><span class="score">' + (st.i + 1) + " / " + items.length + "</span></div>";
+      var head = '<div class="qhead"><h2>' + esc(title) + '</h2><span class="score">' + (st.i + 1) + " / " + items.length + "</span></div>";
       var body = '<div class="card"><div class="prompt">' + esc(it.sheet.prompt) +
-        (multi ? " <strong>(" + it.expected.length + " answers)</strong>" : "") + '</div><div class="fact">' + esc(it.text) + "</div>";
+        (multi ? " <b>(" + it.expected.length + " answers)</b>" : "") + '</div><div class="fact">' + esc(it.text) + "</div>";
       if (!st.checked) {
         body += tiles(r, { selected: st.selected }) + "</div>" +
-          '<div class="sticky-actions"><button class="btn" id="check"' + (st.selected.length ? "" : " disabled") + ">Check</button></div>";
+          '<div class="sticky-actions"><button class="btn" id="check"' + (st.selected.length ? "" : " disabled") + ">Check ✓</button></div>";
       } else {
         var ok = E.isCorrect(it.expected, st.selected);
         var wrong = st.selected.filter(function (n) { return need.indexOf(n) < 0; });
-        body += '<div class="feedback ' + (ok ? "ok" : "no") + '">' + (ok ? "Correct!" : "Not quite.") + " " +
+        body += '<div class="feedback ' + (ok ? "ok" : "no") + '"><div class="head">' + (ok ? "Correct! ✓" : "Not quite.") + "</div>" +
           esc(it.expected.map(E.label).join(", ")) +
           (it.note ? '<span class="note">' + esc(it.note) + "</span>" : "") + "</div>" +
-          tiles(r, { selected: [], right: need, wrong: wrong, disabled: true }) + "</div>" +
-          '<div class="sticky-actions"><button class="btn" id="next">' + (st.i + 1 < items.length ? "Next" : "Finish") + "</button></div>";
+          tiles(r, { right: need, wrong: wrong, disabled: true, dimOthers: true }) + "</div>" +
+          pat(pick(ok ? PAT.right : PAT.wrong)) +
+          '<div class="sticky-actions"><button class="btn" id="next">' + (st.i + 1 < items.length ? "Next &rarr;" : "Finish") + "</button></div>";
       }
-      render(head + body);
+      render(head + body, st.checked || st.selected.length > 0);
       on(".tile", "click", function (e) {
+        Sound.tap();
         var n = +e.currentTarget.getAttribute("data-n");
         var k = st.selected.indexOf(n);
         if (multi) { if (k >= 0) st.selected.splice(k, 1); else st.selected.push(n); }
@@ -148,6 +187,7 @@
         var ok = E.isCorrect(it.expected, st.selected);
         Store.record(it.id, ok); if (ok) st.right++;
         st.checked = true; show();
+        if (ok) Sound.correct(4); else { Sound.wrong(); shake("#tiles"); }
       });
       on("#next", "click", function () {
         st.i++; st.selected = []; st.checked = false;
@@ -155,12 +195,15 @@
       });
     }
     function done() {
-      render('<h1>' + esc(title) + '</h1><div class="card center"><div class="big">' + st.right + " / " + items.length +
-        '</div><p class="muted">correct</p></div><div class="row">' +
-        '<a class="btn" href="#" id="again">' + (isReview ? "Practice misses again" : "Try again") + "</a>" +
+      var perfect = st.right === items.length;
+      render('<h1>' + esc(title) + '</h1><div class="card scorecard"><div class="big">' + st.right + '</div><div class="of">out of ' + items.length + " correct</div></div>" +
+        pat(perfect ? "Perfect! You're a <b>superstar</b>!" : st.right >= items.length * .7 ? "Great job, explorer!" : "Keep practicing. You're getting smarter!") +
+        '<div class="row"><button class="btn" id="again">' + (isReview ? "Practice misses again" : "Try again") + "</button>" +
         (isReview ? '<a class="btn secondary" href="#/review">My misses</a>' : '<a class="btn secondary" href="#/drills">All drills</a>') +
         '<a class="btn ghost" href="#/">Home</a></div>');
-      on("#again", "click", function (e) { e.preventDefault(); drill(which); });
+      on("#again", "click", function () { drill(which); });
+      Sound.fanfare(perfect);
+      if (perfect) confetti(70);
     }
     show();
   }
@@ -169,86 +212,107 @@
   function reviewMenu() {
     var r = range(), all = E.missedItems(r), counts = {};
     all.forEach(function (it) { counts[it.sheet.id] = (counts[it.sheet.id] || 0) + 1; });
-    var list = SHEETS.filter(function (s) { return counts[s.id]; })
-      .sort(function (a, b) { return parseInt(a.id.slice(1), 10) - parseInt(b.id.slice(1), 10); });
+    var list = sortedSheets(SHEETS.filter(function (s) { return counts[s.id]; }));
     render(
-      '<h1>Review My Misses</h1><div class="card">' + rangePicker() + "</div>" +
+      '<h1>Review My Misses</h1>' + rangePicker() + '<div style="height:14px"></div>' +
       (all.length
-        ? '<a class="btn red block" href="#/review/all" style="margin-bottom:14px">Review all misses (' + all.length + ")</a>" +
+        ? '<a class="btn block" href="#/review/all" style="margin-bottom:16px">Review all misses (' + all.length + ")</a>" +
           '<p class="prompt">Or practice one category:</p><div class="sheetlist">' + list.map(function (s) {
             return '<a href="#/review/' + s.id + '"><span><span class="id">' + s.id + "</span>" + esc(s.title) +
-              (s.theme ? ' <span class="badge">THEME</span>' : "") + "</span>" +
+              (s.theme ? '<span class="stamp">THEME</span>' : "") + "</span>" +
               '<span class="score">' + counts[s.id] + "</span></a>";
           }).join("") + "</div>" +
           '<p class="small muted" style="margin-top:14px">A fact leaves this list once your latest answer is right and you have gotten it right at least as many times as you have missed it.</p>'
-        : '<div class="card"><p>No missed facts for this range. Try a drill or a tournament round!</p><a class="btn" href="#/drills">Worksheet drills</a></div>')
+        : pat("No misses for this range. Try a drill or a tournament round!") + '<a class="btn" href="#/drills">Worksheet drills</a>')
     );
     bindRangePicker(reviewMenu);
   }
 
   /* ---------- Tournament round ---------- */
   function roundIntro() {
-    var s = Store.settings();
+    var s = Store.settings(), best = bestFor(range().id);
     render(
-      '<h1>Tournament Round</h1><div class="card">' + rangePicker() +
-      '<p style="margin-top:12px">You get <strong>12 questions</strong>. Each has three clues. Answer after the first clue for <strong>6 points</strong>, after the second for <strong>4</strong>, or after the third for <strong>2</strong>. A wrong answer scores 0, and you can\'t change an answer.</p>' +
-      '<label class="switch"><input type="checkbox" id="timer"' + (s.timer ? " checked" : "") + '> 30-second timer for each clue (like a real round)</label>' +
-      '<label class="switch"><input type="checkbox" id="theme"' + (s.theme ? " checked" : "") + '> Put Secretaries of State in the 4- and 2-point clues (2026-27 theme)</label>' +
-      '<p class="small muted">Clues are built from AGLOA worksheets, the AGLOA quiz archive, and AGLOA\'s official practice questions. Official questions are marked.</p></div>' +
-      '<button class="btn block" id="start">Start round</button>'
+      '<h1>Tournament Round</h1>' + rangePicker() +
+      '<div class="card" style="margin-top:14px"><span class="tape"></span>' +
+        '<p>You get <b>12 questions</b>. Each one has 3 clues.</p>' +
+        '<p style="margin:0">Answer after clue 1 for <b style="color:var(--red)">6 points</b>, clue 2 for <b style="color:var(--navy)">4</b>, or clue 3 for <b style="color:var(--gold-dk)">2</b>. A wrong answer gets 0, and you can\'t change your answer!</p></div>' +
+      pat(best >= 0 ? "Your best here is <b>" + best + "</b>. Can you beat it?" : "Answer early for more points. You can do it!") +
+      '<p class="small muted">Timer: <b>' + (s.timer ? "on" : "off") + "</b> &middot; Sound: <b>" + (s.sound ? "on" : "off") + '</b> &middot; <a href="#/settings">change in Settings</a></p>' +
+      '<button class="btn block" id="start">Start round &rarr;</button>'
     );
     bindRangePicker(roundIntro);
-    on("#timer", "change", function (e) { Store.set("timer", e.target.checked); });
-    on("#theme", "change", function (e) { Store.set("theme", e.target.checked); });
-    on("#start", "click", function () { playRound(); });
+    on("#start", "click", function () { Sound.flip(); playRound(); });
   }
 
   function playRound() {
     var r = range(), s = Store.settings();
     var qs = E.buildRound(r, s.theme, 12);
     if (!qs.length) return render("<p>Could not build a round.</p>");
-    var st = { qi: 0, clue: 0, answer: null, at: null, revealed: false, total: 0, log: [] };
+    var prevBest = bestFor(r.id);
+    var st = { qi: 0, clue: 0, answer: null, at: null, revealed: false, total: 0, log: [], animated: -1 };
 
     function pts(k) { return [6, 4, 2][k]; }
+    function dots() {
+      return '<div class="dots" aria-hidden="true">' + qs.map(function (q, i) {
+        var cls = i < st.log.length ? (st.log[i].got ? "ok" : "miss") : i === st.qi ? "now" : "";
+        return '<i class="' + cls + '"></i>';
+      }).join("") + "</div>";
+    }
+    function result() {
+      var q = qs[st.qi];
+      var acc = st.at == null ? [q.answer] : E.acceptedAfter(q, st.at);
+      var ok = st.answer != null && acc.indexOf(st.answer) >= 0;
+      return { ok: ok, got: ok ? pts(st.at) : 0, acc: acc };
+    }
     function show() {
       var q = qs[st.qi];
-      var head = '<div class="qhead"><h2 style="margin:0">Question ' + (st.qi + 1) + " of " + qs.length + "</h2>" +
-        '<span class="score">' + st.total + " pts</span></div>";
-      if (q.official) head += '<p class="small"><span class="badge">OFFICIAL AGLOA PRACTICE QUESTION</span></p>';
+      var head = '<div class="qhead"><h2>Question ' + (st.qi + 1) + " of " + qs.length + '</h2><span class="score">⭐ ' + st.total + " pts</span></div>" + dots();
+      if (q.official) head += '<p class="official"><span class="badge">OFFICIAL AGLOA PRACTICE QUESTION</span></p>';
+      var answeredEarly = st.answer != null && !st.revealed;
       var cl = '<ol class="clues">' + q.clues.map(function (c, k) {
         var shown = st.revealed || k <= st.clue;
-        return '<li class="clue p' + pts(k) + (shown ? "" : " hidden") + '"><span class="pts">' + pts(k) + '</span><span class="txt">' +
-          (shown ? (st.revealed ? '<span class="tag">' + esc(c.src) + "</span>" : "") + esc(c.text) : "Clue " + (k + 1) + " is coming...") + "</span></li>";
+        if (!shown) {
+          return '<li class="clue wait p' + pts(k) + '"><span class="pts">' + pts(k) + "</span><span>" +
+            (answeredEarly ? "Answer locked in!" : "Clue " + (k + 1) + " is coming&hellip;") + "</span></li>";
+        }
+        return '<li class="clue p' + pts(k) + (k === st.clue && !st.revealed && st.animated !== st.clue ? " now" : "") + '"><span class="pts">' + pts(k) + "</span><span>" +
+          (st.revealed ? '<span class="tag">' + esc(c.src) + "</span>" : "") + esc(c.text) + "</span></li>";
       }).join("") + "</ol>";
-      var timer = (!st.revealed && s.timer) ? '<div class="timer" aria-hidden="true"><i id="bar"></i></div>' : "";
       var body;
       if (!st.revealed) {
-        body = '<div class="prompt">' + (st.answer == null ? "Tap a president to lock in your answer for <strong>" + pts(st.clue) + " points</strong>, or wait for the next clue." :
-          "Your answer is locked in. Keep reading the clues.") + "</div>" +
+        var timer = s.timer ? '<div class="timer" aria-hidden="true"><i id="bar"></i></div>' : "";
+        body = cl + timer + '<div class="prompt">' + (st.answer == null ? "Tap a president now for <b>" + pts(st.clue) + " points</b>, or wait for the next clue." :
+          "Locked in for <b>" + pts(st.at) + " points</b>. Check it, or keep reading the clues.") + "</div>" +
           tiles(r, { selected: st.answer != null ? [st.answer] : [], disabled: st.answer != null }) +
-          '<div class="sticky-actions"><button class="btn secondary" id="nextclue">' +
-          (st.clue < 2 ? "Next clue" : "Reveal answer") + "</button></div>";
+          '<div class="sticky-actions">' + (st.answer != null
+            ? '<button class="btn" id="reveal">Check it ✓</button>' + (st.clue < 2 ? '<button class="btn secondary" id="nextclue">Next clue</button>' : "")
+            : '<button class="btn secondary" id="nextclue">' + (st.clue < 2 ? "Next clue &rarr;" : "Show answer") + "</button>") + "</div>";
       } else {
-        var acc = st.at == null ? [q.answer] : E.acceptedAfter(q, st.at);
-        var ok = st.answer != null && acc.indexOf(st.answer) >= 0;
-        var got = ok ? pts(st.at) : 0;
-        var msg = st.answer == null ? "No answer. 0 points." : ok ? "Correct! +" + got + " points." : "Not this time. 0 points.";
-        var feedback = '<div class="feedback ' + (ok ? "ok" : "no") + '">' + msg + " The answer is " + esc(E.label(q.answer)) + "." +
+        var res = result();
+        var stamp = res.ok ? '<div class="bigstamp">+' + res.got + ' ✓<small>CORRECT</small></div>'
+          : '<div class="bigstamp no">' + (st.answer == null ? "0" : "✗") + "<small>" + (st.answer == null ? "NO ANSWER" : "NOT THIS TIME") + "</small></div>";
+        var feedback = '<div class="feedback ' + (res.ok ? "ok" : "no") + '"><div class="head">' +
+          (res.ok ? "Correct! +" + res.got + " points" : st.answer == null ? "No answer: 0 points" : "Not this time: 0 points") + "</div>" +
+          "The answer is <b>" + esc(E.label(q.answer)) + "</b>." +
           (q.note ? '<span class="note">' + esc(q.note) + "</span>" : "") +
-          (ok && acc.length > 1 ? '<span class="note">Cleveland was president twice: #22 (1885-1889) and #24 (1893-1897). At a tournament, circle the right term.</span>' : "") +
+          (res.ok && res.acc.length > 1 ? '<span class="note">Cleveland was president twice: #22 (1885-1889) and #24 (1893-1897). At a tournament, circle the right term.</span>' : "") +
           "</div>";
-        var grid = tiles(r, { right: [q.answer], wrong: st.answer != null && !ok ? [st.answer] : [], disabled: true });
-        var actions = '<div class="sticky-actions"><button class="btn" id="nextq">' + (st.qi + 1 < qs.length ? "Next question" : "See results") + "</button></div>";
-        // Result first, then the clues (with where each came from), then the chart.
-        body = feedback + cl + grid + actions;
+        var say = pat(pick(res.ok ? (res.got === 6 ? PAT.six : PAT.right) : st.answer == null ? PAT.none : PAT.wrong));
+        body = '<div style="position:relative">' + stamp + feedback + cl + "</div>" + say +
+          tiles(r, { right: [q.answer], wrong: st.answer != null && !res.ok ? [st.answer] : [], disabled: true, dimOthers: true }) +
+          '<div class="sticky-actions"><button class="btn" id="nextq">' + (st.qi + 1 < qs.length ? "Next question &rarr;" : "See my score!") + "</button></div>";
       }
-      render(st.revealed ? head + body : head + cl + timer + body);
-      if (!st.revealed && s.timer) startTimer();
+      // Stay in place while reading clues and answering; jump to the top for a new question or the result.
+      render(head + body, !st.revealed && !(st.clue === 0 && st.answer == null));
+      st.animated = st.clue;   // a clue slides in only the first time it appears
+      if (!st.revealed && s.timer && st.answer == null) startTimer();
       on(".tile", "click", function (e) {
         if (st.answer != null) return;
+        Sound.tap();
         st.answer = +e.currentTarget.getAttribute("data-n"); st.at = st.clue; show();
       });
-      on("#nextclue", "click", advance);
+      on("#nextclue", "click", function () { advance(); });
+      on("#reveal", "click", reveal);
       on("#nextq", "click", nextQuestion);
     }
     function startTimer() {
@@ -260,35 +324,67 @@
       }, 1000);
     }
     function advance() {
-      if (st.clue < 2) { st.clue++; show(); return; }
-      var q = qs[st.qi];
-      var acc = st.at == null ? [q.answer] : E.acceptedAfter(q, st.at);
-      var ok = st.answer != null && acc.indexOf(st.answer) >= 0;
-      var got = ok ? pts(st.at) : 0;
-      st.total += got;
-      st.log.push({ q: q, answer: st.answer, got: got });
-      q.clues.forEach(function (c) { if (c.id) Store.record(c.id, ok); });
+      if (st.clue < 2) { st.clue++; Sound.flip(); show(); return; }
+      reveal();
+    }
+    function reveal() {
+      var q = qs[st.qi], res = result();
+      st.total += res.got;
+      st.log.push({ q: q, answer: st.answer, got: res.got, at: st.at });
+      q.clues.forEach(function (c) { if (c.id) Store.record(c.id, res.ok); });
       st.revealed = true; show();
+      if (res.ok) { Sound.correct(res.got); confetti(res.got === 6 ? 80 : 45); }
+      else { Sound.wrong(); shake("#tiles"); }
     }
     function nextQuestion() {
-      st.qi++; st.clue = 0; st.answer = null; st.at = null; st.revealed = false;
-      if (st.qi < qs.length) show(); else results();
+      st.qi++; st.clue = 0; st.answer = null; st.at = null; st.revealed = false; st.animated = -1;
+      if (st.qi < qs.length) { Sound.flip(); show(); } else results();
     }
     function results() {
-      var by = { 6: 0, 4: 0, 2: 0, 0: 0 };
+      var by = { 6: 0, 4: 0, 2: 0, 0: 0 }, max = qs.length * 6;
       st.log.forEach(function (x) { by[x.got]++; });
-      Store.addRound({ t: Date.now(), range: r.id, score: st.total, max: qs.length * 6, by: by });
+      Store.addRound({ t: Date.now(), range: r.id, score: st.total, max: max, by: by });
+      var record = prevBest >= 0 && st.total > prevBest;
+      var k = rankIndex(st.total), next = RANKS[k + 1];
+      var missed = st.log.filter(function (x) { return !x.got; });
+      var msg = next ? "<b>" + (next[1] - st.total) + " more point" + (next[1] - st.total === 1 ? "" : "s") + "</b> to " + next[0] + "!" : "You reached <b>President</b>! Hail to the Chief!";
       render(
-        '<h1>Round complete</h1><div class="card center"><div class="big">' + st.total + " / " + qs.length * 6 + '</div>' +
-        '<p class="muted">6-pointers: ' + by[6] + " &middot; 4-pointers: " + by[4] + " &middot; 2-pointers: " + by[2] + " &middot; missed: " + by[0] + "</p></div>" +
-        '<div class="card"><table class="results"><thead><tr><th>#</th><th>Answer</th><th>You</th><th>Pts</th></tr></thead><tbody>' +
-        st.log.map(function (x, i) {
-          return "<tr><td>" + (i + 1) + '</td><td><a href="#/study/' + x.q.answer + '">' + esc(E.label(x.q.answer)) + "</a></td><td>" +
-            (x.answer == null ? "&mdash;" : "#" + x.answer) + "</td><td>" + x.got + "</td></tr>";
-        }).join("") + "</tbody></table></div>" +
-        '<div class="row"><button class="btn" id="again">Play another round</button><a class="btn ghost" href="#/">Home</a></div>'
+        '<h1>Round complete!</h1>' +
+        '<div class="card scorecard">' + (record ? '<div class="record">New record!</div>' : "") +
+          '<div class="big">' + st.total + '</div><div class="of">out of ' + max + (prevBest >= 0 ? " &middot; best was " + prevBest : "") + "</div>" +
+          '<div class="rank">Rank: ' + RANKS[k][0] + " " + RANKS[k][2] + "</div>" +
+          '<div class="ladder">' + RANKS.map(function (x, i) { return '<span class="' + (i < k ? "done" : i === k ? "cur" : "") + '">' + x[0] + "</span>"; }).join("") + "</div></div>" +
+        '<div class="tally">' +
+          '<div><b style="color:var(--red)">' + by[6] + "</b><span>6-pointers</span></div>" +
+          '<div><b style="color:var(--navy)">' + by[4] + "</b><span>4-pointers</span></div>" +
+          '<div><b style="color:var(--gold-dk)">' + by[2] + "</b><span>2-pointers</span></div>" +
+          "<div><b>" + by[0] + "</b><span>missed</span></div></div>" +
+        pat(msg) +
+        '<div class="row" style="margin-bottom:14px"><button class="btn" id="again">Play again</button>' +
+          (missed.length ? '<button class="btn secondary" id="missed">Review the ' + (missed.length === 1 ? "one" : missed.length) + " I missed</button>" : "") +
+          '<a class="btn ghost" href="#/">Home</a></div>' +
+        '<details class="card"><summary>See all 12 answers</summary><table class="results"><thead><tr><th>#</th><th>Answer</th><th>You</th><th>Pts</th></tr></thead><tbody>' +
+          st.log.map(function (x, i) {
+            return "<tr><td>" + (i + 1) + '</td><td><a href="#/study/' + x.q.answer + '">' + esc(E.label(x.q.answer)) + "</a></td><td>" +
+              (x.answer == null ? "&mdash;" : "#" + x.answer) + "</td><td>" + x.got + "</td></tr>";
+          }).join("") + "</tbody></table></details>"
       );
-      on("#again", "click", playRound);
+      on("#again", "click", function () { Sound.flip(); playRound(); });
+      on("#missed", "click", function () { missedList(missed); });
+      Sound.fanfare(record);
+      if (record || k >= 3) confetti(record ? 120 : 70);
+    }
+    function missedList(missed) {
+      render('<h1>Questions I missed</h1>' + pat("Read all 3 clues again. Next time you'll know!") +
+        missed.map(function (x) {
+          return '<div class="card"><h3><a href="#/study/' + x.q.answer + '">' + esc(E.label(x.q.answer)) + "</a></h3>" +
+            (x.answer != null ? '<p class="small muted">You answered #' + x.answer + ".</p>" : '<p class="small muted">You didn\'t answer.</p>') +
+            '<ol class="clues">' + x.q.clues.map(function (c, k) {
+              return '<li class="clue p' + pts(k) + '"><span class="pts">' + pts(k) + "</span><span>" + esc(c.text) + "</span></li>";
+            }).join("") + "</ol></div>";
+        }).join("") +
+        '<div class="row"><button class="btn" id="again">Play another round</button><a class="btn ghost" href="#/">Home</a></div>');
+      on("#again", "click", function () { Sound.flip(); playRound(); });
     }
     show();
   }
@@ -296,7 +392,7 @@
   /* ---------- Study ---------- */
   function studyList() {
     var r = range();
-    render('<h1>Study a President</h1><div class="card">' + rangePicker() + "</div>" +
+    render('<h1>Study a President</h1>' + rangePicker() + '<div style="height:14px"></div>' +
       '<div class="plist">' + presidentsIn(r).map(function (p) {
         return '<a href="#/study/' + p.n + '"><b>' + p.n + "</b>" + esc(p.name) + "</a>";
       }).join("") + "</div>");
@@ -326,30 +422,54 @@
     rest.forEach(function (x) { (groups[x.sheet.id] = groups[x.sheet.id] || []).push(x); });
     var quiz = (window.QUIZ_CLUES || []).filter(function (q) { return E.concrete([q.a]).indexOf(n) >= 0; });
     var prev = E.byNum[n - 1] ? n - 1 : null, next = E.byNum[n + 1] ? n + 1 : null;
+    var tapes = ["40%", "18%", "64%"];
+    var ti = 0;
+    function tape() { return '<span class="tape" style="left:' + tapes[ti++ % 3] + '"></span>'; }
     render(
-      // Header stays pinned under the top bar while scrolling through the facts.
       '<div class="study-head">' +
         (prev ? '<a class="btn ghost" href="#/study/' + prev + '" aria-label="Previous: #' + prev + '">&larr; ' + prev + "</a>" : '<span class="navpad"></span>') +
         '<h1><span class="pnum">#' + p.n + "</span> " + esc(p.name) + "</h1>" +
         (next ? '<a class="btn ghost" href="#/study/' + next + '" aria-label="Next: #' + next + '">' + next + " &rarr;</a>" : '<span class="navpad"></span>') +
       "</div>" +
-      (n === 22 || n === 24 ? '<p class="muted">Grover Cleveland served two terms that were not back to back, so he is both #22 and #24.</p>' : "") +
-      '<div class="card"><h3>From the Presidents Chart</h3><dl class="chart">' +
+      (n === 22 || n === 24 ? pat("Grover Cleveland served two terms that were not back to back, so he is both <b>#22</b> and <b>#24</b>!") : "") +
+      '<div class="card">' + tape() + '<h3>From the Presidents Chart</h3><dl class="chart">' +
         "<dt>Lived</dt><dd>" + esc(p.lived) + "</dd><dt>Born in</dt><dd>" + esc(p.born) + "</dd><dt>Died in</dt><dd>" + esc(p.died) +
         "</dd><dt>President</dt><dd>" + esc(p.term) + "</dd><dt>Party</dt><dd>" + esc(p.party) + "</dd></dl></div>" +
-      '<div class="card"><h3>Secretaries of State <span class="badge">THEME</span></h3><p>' + names("B14") + "</p>" +
+      '<div class="card">' + tape() + '<h3>Secretaries of State <span class="stamp">THEME</span></h3><p>' + names("B14") + "</p>" +
         '<h3>Vice Presidents</h3><p>' + names("B4") + "</p><h3>Wives</h3><p>" + names("B2") + "</p><h3>Nicknames</h3><p style=\"margin:0\">" + names("B22") + "</p></div>" +
       Object.keys(groups).map(function (id) {
         var s = sheetById(id);
-        return '<div class="card"><h3>' + esc(s.title) + ' <span class="small muted">' + id + '</span></h3><ul class="facts">' +
+        return '<div class="card">' + tape() + "<h3>" + esc(s.title) + ' <span class="small muted">' + id + '</span></h3><ul class="facts">' +
           groups[id].map(function (x) {
             return "<li>" + esc(x.text) + (x.note ? ' <span class="src">' + esc(x.note) + "</span>" : "") +
               (x.shared ? ' <span class="src">(also: ' + esc(x.shared.filter(function (a) { return a !== n && !(a === "C" && (n === 22 || n === 24)); }).map(function (a) { return a === "C" ? "22/24" : "#" + a; }).join(", ")) + ")</span>" : "") + "</li>";
           }).join("") + "</ul></div>";
       }).join("") +
-      (quiz.length ? '<div class="card"><h3>Clues from the AGLOA Quiz Archive</h3><ul class="facts">' +
+      (quiz.length ? '<div class="card">' + tape() + '<h3>Clues from the AGLOA Quiz Archive</h3><ul class="facts">' +
         quiz.map(function (q) { return "<li>" + esc(q.t) + ' <a class="src" href="' + esc(q.url) + '" target="_blank" rel="noopener">' + esc(q.src) + "</a></li>"; }).join("") + "</ul></div>" : "")
     );
+  }
+
+  /* ---------- Settings ---------- */
+  function settings() {
+    var s = Store.settings();
+    function sw(id, on, title, help) {
+      return '<label class="switch"><input type="checkbox" id="' + id + '"' + (on ? " checked" : "") + "><span><b>" + title + "</b><small>" + help + "</small></span></label>";
+    }
+    render(
+      '<h1>Settings</h1>' +
+      '<div class="card">' +
+        sw("sound", s.sound, "🔊 Sound effects", "Stamps, cheers and page flips.") +
+        sw("timer", s.timer, "⏱️ 30-second timer", "Each clue in a tournament round gets 30 seconds, like a real round.") +
+        sw("theme", s.theme, "🎩 Theme clues", "Put Secretaries of State in the 4- and 2-point clues (2026-27 theme).") +
+      "</div>" +
+      '<button class="btn secondary" id="test">Test the sound</button>' +
+      '<p class="small muted" style="margin-top:14px">Reset buttons are on the <a href="#/about">About</a> page.</p>'
+    );
+    on("#sound", "change", function (e) { Store.set("sound", e.target.checked); if (e.target.checked) Sound.correct(6); });
+    on("#timer", "change", function (e) { Store.set("timer", e.target.checked); Sound.tap(); });
+    on("#theme", "change", function (e) { Store.set("theme", e.target.checked); Sound.tap(); });
+    on("#test", "click", function () { Sound.correct(6); if (!Store.settings().sound) alert("Sound is off. Turn on Sound effects first."); });
   }
 
   /* ---------- About ---------- */
@@ -358,16 +478,17 @@
     var misses = E.missedItems(RANGES.all).length;
     render(
       '<h1>About</h1>' +
-      '<div class="card"><h3>How PRESIDENTS is played</h3><p>A reader gives three clues about one president, each read twice with 30 seconds to think. Answer after the first clue for 6 points, the second for 4, or the third for 2. A wrong answer scores 0, and answers can\'t be changed. A round has 12 questions. You may use only the official Presidents Chart.</p>' +
-      '<p>In 2026-27, Elementary and Middle Divisions play Group B: #16&ndash;24 in the first round and #25&ndash;33 in the second. The theme for all divisions is Secretaries of State. The 4- or 2-point clues may mention a Secretary of State.</p></div>' +
-      '<div class="card"><h3>Where the questions come from</h3><p>All content comes from the Academic Games Leagues of America (AGLOA):</p><ul class="facts">' +
+      '<div class="card"><span class="tape"></span><h3>How PRESIDENTS is played</h3><p>A reader gives three clues about one president, each read twice with 30 seconds to think. Answer after the first clue for 6 points, the second for 4, or the third for 2. A wrong answer scores 0, and answers can\'t be changed. A round has 12 questions. You may use only the official Presidents Chart.</p>' +
+      '<p style="margin:0">In 2026-27, Elementary and Middle Divisions play Group B: #16&ndash;24 in the first round and #25&ndash;33 in the second. The theme for all divisions is Secretaries of State. The 4- or 2-point clues may mention a Secretary of State.</p></div>' +
+      '<div class="card"><span class="tape" style="left:20%"></span><h3>Where the questions come from</h3><p>All content comes from the Academic Games Leagues of America (AGLOA):</p><ul class="facts">' +
         '<li><a href="https://agloa.org/pres-docs/" target="_blank" rel="noopener">Presidents Rules and Documents</a>: the 2026-27 rules, the Presidents Chart, the 25 Group B worksheets, and the official practice questions.</li>' +
         '<li><a href="https://agloa.org/category/pres-quiz/" target="_blank" rel="noopener">AGLOA Presidents Quiz archive</a> (2015-2021).</li></ul>' +
-        '<p class="small muted">Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
-      '<div class="card"><h3>Your progress</h3><p>' + facts + " facts practiced, " + rounds + ' rounds played. Progress is saved only in this browser.</p>' +
+        '<p class="small muted" style="margin:8px 0 0">Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
+      '<div class="card"><span class="tape" style="left:64%"></span><h3>Your progress</h3><p>' + facts + " facts practiced, " + rounds + ' rounds played. Progress is saved only in this browser.</p>' +
         '<div class="row"><button class="btn secondary" id="resetMisses"' + (misses ? "" : " disabled") + ">Reset my misses" + (misses ? " (" + misses + ")" : "") + "</button>" +
         '<button class="btn secondary" id="reset">Reset my progress</button></div>' +
-        '<p class="small muted" style="margin:10px 0 0">Reset my misses empties the Review My Misses list but keeps everything else. Reset my progress erases all progress and round scores.</p></div>'
+        '<p class="small muted" style="margin:10px 0 0">Reset my misses empties the Review My Misses list but keeps everything else. Reset my progress erases all progress and round scores.</p></div>' +
+      pat("Hi! I'm <b>Pat</b>, short for Patriot. Happy studying!")
     );
     on("#resetMisses", "click", function () {
       if (confirm("Clear your missed facts list? Your other progress stays.")) { Store.clearMisses(); about(); }
@@ -377,7 +498,7 @@
     });
   }
 
-  function notFound() { render('<h1>Page not found</h1><a class="btn" href="#/">Home</a>'); }
+  function notFound() { render('<h1>Page not found</h1>' + pat("Oops! Let's head home.") + '<a class="btn" href="#/">Home</a>'); }
 
   /* ---------- router ---------- */
   function route() {
@@ -392,6 +513,7 @@
       case "drill": return drill(h[1] || "mix");
       case "review": return !h[1] ? reviewMenu() : drill(h[1] === "all" ? "review" : "review-" + h[1]);
       case "study": return h[1] ? study(+h[1]) : studyList();
+      case "settings": return settings();
       case "about": return about();
       default: return notFound();
     }

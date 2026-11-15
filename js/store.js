@@ -2,7 +2,7 @@
 (function () {
   var KEY = "agp-presidents-v1";
   var defaults = {
-    settings: { range: "all", timer: false, theme: true },
+    settings: { range: "all", timer: false, theme: true, sound: true },
     facts: {},      // factId -> { r: rightCount, w: wrongCount, last: 1|0, t: timestamp }
     rounds: []      // { t, range, score, max, by: {6:n,4:n,2:n,0:n} }
   };

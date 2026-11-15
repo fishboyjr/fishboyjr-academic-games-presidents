@@ -11,12 +11,14 @@ It is a plain web app, so it works on iPads, Chromebooks, phones, and computers.
 
 | Mode | What it does |
 |---|---|
-| **Tournament Round** | 12 questions with 3 clues each. Answering after clue 1 scores 6 points, clue 2 scores 4, clue 3 scores 2, and a wrong answer scores 0, just like the real game. There's an optional 30-second timer per clue and a range picker (#16–24, #25–33, or all). AGLOA's official practice questions are mixed in and marked. |
+| **Tournament Round** | 12 questions with 3 clues each. Answering after clue 1 scores 6 points, clue 2 scores 4, clue 3 scores 2, and a wrong answer scores 0, just like the real game. Progress dots show each question. Correct answers get a "+6 ✓" stamp, confetti and a cheer; wrong answers get a gentle shake. The results screen shows the score, a "New record!" sticker, a rank ladder (Voter, Mayor 24+, Governor 36+, Senator 48+, President 60+) and a review of missed questions. AGLOA's official practice questions are mixed in and marked. |
 | **Secretaries of State** | A drill of the theme worksheet (B14). |
 | **Worksheet Drills** | All 25 AGLOA Group B worksheets (B1–B25). Kids tap presidents on a chart-style grid; some items have more than one answer. |
 | **Quick Mix** | 10 random facts from all the worksheets. |
 | **Review My Misses** | Lists missed facts by category (worksheet). Kids can practice one category or all misses at once. The About page has a separate "Reset my misses" button. |
 | **Study a President** | Chart facts, Secretaries of State, vice presidents, wives, nicknames, every worksheet fact, and archive clues for each president. |
+
+**Look and feel:** an explorer's notebook in red, white and blue (lined paper, sticky-note cards, rubber stamps), with a mascot, **Pat the eagle** (short for Patriot), who cheers kids on. **Settings** (the ⚙️ in the top bar) turns sound effects, the 30-second timer and theme clues on or off. Sounds are generated in code (no audio files). Light and dark mode both work, and animations are skipped when the device asks for reduced motion.
 
 Progress is saved in the browser on that device (localStorage). Nothing is sent anywhere.
 
@@ -54,11 +56,13 @@ In the repository's **Settings → Pages**, choose **Deploy from a branch**, the
 
 ```
 index.html              app shell
-css/app.css             styles (light and dark)
+css/app.css             notebook styles (light and dark)
+fonts/                  Patrick Hand + Nunito (SIL Open Font License, see *-OFL.txt)
 js/data/presidents.js   Presidents Chart #16-33 and round ranges
 js/data/facts.js        AGLOA worksheets B1-B25 and official practice questions
 js/data/quiz.js         AGLOA quiz-archive clues (generated)
 js/store.js             saved settings and progress
+js/sound.js             sound effects (Web Audio)
 js/engine.js            answer checking, drills, round builder
 js/app.js               screens
 sw.js, manifest.webmanifest, icons/   offline + home-screen install

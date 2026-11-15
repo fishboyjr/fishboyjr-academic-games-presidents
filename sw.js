@@ -1,9 +1,10 @@
 /* Offline support: cache the app files, serve from cache, refresh in the background. */
-var CACHE = "presidents-v4";
+var CACHE = "presidents-v5";
 var FILES = [
   "./", "index.html", "css/app.css", "manifest.webmanifest",
   "js/data/presidents.js", "js/data/facts.js", "js/data/quiz.js",
-  "js/store.js", "js/engine.js", "js/app.js",
+  "js/store.js", "js/sound.js", "js/engine.js", "js/app.js",
+  "fonts/nunito-latin.woff2", "fonts/patrickhand-latin.woff2",
   "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png"
 ];
 self.addEventListener("install", function (e) {
