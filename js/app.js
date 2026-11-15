@@ -97,17 +97,24 @@
   function drill(which) {
     var r = range(), items, title;
     if (which === "mix") { items = E.shuffle(E.drillItems({ range: r })).slice(0, 10); title = "Quick Mix"; }
-    else if (which === "review") { items = E.shuffle(E.missedItems(r)); title = "Review My Misses"; }
+    else if (which === "review") { items = E.shuffle(E.missedItems(r)); title = "All My Misses"; }
+    else if (which.indexOf("review-") === 0) {
+      var rs = sheetById(which.slice(7));
+      if (!rs) return notFound();
+      items = E.shuffle(E.missedItems(r, rs.id));
+      title = "Misses: " + rs.title;
+    }
     else {
       var s = sheetById(which);
       if (!s) return notFound();
       items = E.shuffle(E.drillItems({ range: r, sheets: [s.id] }));
       title = s.id + ": " + s.title;
     }
+    var isReview = which === "review" || which.indexOf("review-") === 0;
     if (!items.length) {
       return render('<h1>' + esc(title) + '</h1><div class="card"><p>' +
-        (which === "review" ? "No missed facts for this range. Try a drill or a tournament round!" : "No items in this range. Pick another range.") +
-        '</p>' + rangePicker() + '</div><a class="btn" href="#/">Home</a>'), bindRangePicker(function () { drill(which); });
+        (isReview ? "No missed facts here for this range. Nice work!" : "No items in this range. Pick another range.") +
+        '</p>' + rangePicker() + '</div><a class="btn" href="' + (isReview ? "#/review" : "#/") + '">' + (isReview ? "Back to my misses" : "Home") + "</a>"), bindRangePicker(function () { drill(which); });
     }
     var st = { i: 0, right: 0, selected: [], checked: false };
 
@@ -150,11 +157,33 @@
     function done() {
       render('<h1>' + esc(title) + '</h1><div class="card center"><div class="big">' + st.right + " / " + items.length +
         '</div><p class="muted">correct</p></div><div class="row">' +
-        '<a class="btn" href="#/drill/' + esc(which) + '" id="again">Try again</a>' +
-        '<a class="btn secondary" href="#/drills">All drills</a><a class="btn ghost" href="#/">Home</a></div>');
+        '<a class="btn" href="#" id="again">' + (isReview ? "Practice misses again" : "Try again") + "</a>" +
+        (isReview ? '<a class="btn secondary" href="#/review">My misses</a>' : '<a class="btn secondary" href="#/drills">All drills</a>') +
+        '<a class="btn ghost" href="#/">Home</a></div>');
       on("#again", "click", function (e) { e.preventDefault(); drill(which); });
     }
     show();
+  }
+
+  /* ---------- Review my misses ---------- */
+  function reviewMenu() {
+    var r = range(), all = E.missedItems(r), counts = {};
+    all.forEach(function (it) { counts[it.sheet.id] = (counts[it.sheet.id] || 0) + 1; });
+    var list = SHEETS.filter(function (s) { return counts[s.id]; })
+      .sort(function (a, b) { return parseInt(a.id.slice(1), 10) - parseInt(b.id.slice(1), 10); });
+    render(
+      '<h1>Review My Misses</h1><div class="card">' + rangePicker() + "</div>" +
+      (all.length
+        ? '<a class="btn red block" href="#/review/all" style="margin-bottom:14px">Review all misses (' + all.length + ")</a>" +
+          '<p class="prompt">Or practice one category:</p><div class="sheetlist">' + list.map(function (s) {
+            return '<a href="#/review/' + s.id + '"><span><span class="id">' + s.id + "</span>" + esc(s.title) +
+              (s.theme ? ' <span class="badge">THEME</span>' : "") + "</span>" +
+              '<span class="score">' + counts[s.id] + "</span></a>";
+          }).join("") + "</div>" +
+          '<p class="small muted" style="margin-top:14px">A fact leaves this list once your latest answer is right and you have gotten it right at least as many times as you have missed it.</p>'
+        : '<div class="card"><p>No missed facts for this range. Try a drill or a tournament round!</p><a class="btn" href="#/drills">Worksheet drills</a></div>')
+    );
+    bindRangePicker(reviewMenu);
   }
 
   /* ---------- Tournament round ---------- */
@@ -323,6 +352,7 @@
   /* ---------- About ---------- */
   function about() {
     var rounds = Store.rounds().length, facts = Object.keys(Store.allFacts()).length;
+    var misses = E.missedItems(RANGES.all).length;
     render(
       '<h1>About</h1>' +
       '<div class="card"><h3>How PRESIDENTS is played</h3><p>A reader gives three clues about one president, each read twice with 30 seconds to think. Answer after the first clue for 6 points, the second for 4, or the third for 2. A wrong answer scores 0, and answers can\'t be changed. A round has 12 questions. You may use only the official Presidents Chart.</p>' +
@@ -332,8 +362,13 @@
         '<li><a href="https://agloa.org/category/pres-quiz/" target="_blank" rel="noopener">AGLOA Presidents Quiz archive</a> (2015-2021).</li></ul>' +
         '<p class="small muted">Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
       '<div class="card"><h3>Your progress</h3><p>' + facts + " facts practiced, " + rounds + ' rounds played. Progress is saved only in this browser.</p>' +
-        '<button class="btn secondary" id="reset">Reset my progress</button></div>'
+        '<div class="row"><button class="btn secondary" id="resetMisses"' + (misses ? "" : " disabled") + ">Reset my misses" + (misses ? " (" + misses + ")" : "") + "</button>" +
+        '<button class="btn secondary" id="reset">Reset my progress</button></div>' +
+        '<p class="small muted" style="margin:10px 0 0">Reset my misses empties the Review My Misses list but keeps everything else. Reset my progress erases all progress and round scores.</p></div>'
     );
+    on("#resetMisses", "click", function () {
+      if (confirm("Clear your missed facts list? Your other progress stays.")) { Store.clearMisses(); about(); }
+    });
     on("#reset", "click", function () {
       if (confirm("Erase all progress on this device?")) { Store.reset(); about(); }
     });
@@ -352,7 +387,7 @@
       case "round": return roundIntro();
       case "drills": return drillsMenu();
       case "drill": return drill(h[1] || "mix");
-      case "review": return drill("review");
+      case "review": return !h[1] ? reviewMenu() : drill(h[1] === "all" ? "review" : "review-" + h[1]);
       case "study": return h[1] ? study(+h[1]) : studyList();
       case "about": return about();
       default: return notFound();

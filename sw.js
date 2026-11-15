@@ -1,5 +1,5 @@
 /* Offline support: cache the app files, serve from cache, refresh in the background. */
-var CACHE = "presidents-v2";
+var CACHE = "presidents-v3";
 var FILES = [
   "./", "index.html", "css/app.css", "manifest.webmanifest",
   "js/data/presidents.js", "js/data/facts.js", "js/data/quiz.js",

@@ -23,7 +23,20 @@
     try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) { /* private mode: keep in memory */ }
   }
 
+  /* A fact counts as "missed" if the last try was wrong or it has been missed more often than gotten right. */
+  function isMiss(f) { return !!f && (f.last === 0 || f.w > f.r); }
+
   window.Store = {
+    isMiss: isMiss,
+    /* Clear miss status only: keeps right-answer counts and rounds, so drill progress is unchanged. */
+    clearMisses: function () {
+      var facts = load().facts, n = 0;
+      Object.keys(facts).forEach(function (k) {
+        var f = facts[k];
+        if (isMiss(f)) { f.w = 0; f.last = null; n++; }
+      });
+      save(); return n;
+    },
     settings: function () { return load().settings; },
     set: function (k, v) { load().settings[k] = v; save(); },
     record: function (factId, ok) {

@@ -72,10 +72,11 @@
     });
   }
 
-  function missedItems(range) {
+  /* Missed worksheet facts in a range, optionally limited to one worksheet. */
+  function missedItems(range, sheetId) {
     var facts = Store.allFacts();
-    return drillItems({ range: range }).filter(function (it) {
-      var f = facts[it.id]; return f && (f.last === 0 || f.w > f.r);
+    return drillItems({ range: range, sheets: sheetId ? [sheetId] : null }).filter(function (it) {
+      return Store.isMiss(facts[it.id]);
     });
   }
 

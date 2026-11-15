@@ -15,7 +15,7 @@ It is a plain web app, so it works on iPads, Chromebooks, phones, and computers.
 | **Secretaries of State** | A drill of the theme worksheet (B14). |
 | **Worksheet Drills** | All 25 AGLOA Group B worksheets (B1–B25). Kids tap presidents on a chart-style grid; some items have more than one answer. |
 | **Quick Mix** | 10 random facts from all the worksheets. |
-| **Review My Misses** | Repeats every fact the kid got wrong last time. |
+| **Review My Misses** | Lists missed facts by category (worksheet). Kids can practice one category or all misses at once. The About page has a separate "Reset my misses" button. |
 | **Study a President** | Chart facts, Secretaries of State, vice presidents, wives, nicknames, every worksheet fact, and archive clues for each president. |
 
 Progress is saved in the browser on that device (localStorage). Nothing is sent anywhere.
