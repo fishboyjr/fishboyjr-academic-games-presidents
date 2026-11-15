@@ -328,9 +328,9 @@
       '<div class="card"><h3>How PRESIDENTS is played</h3><p>A reader gives three clues about one president, each read twice with 30 seconds to think. Answer after the first clue for 6 points, the second for 4, or the third for 2. A wrong answer scores 0, and answers can\'t be changed. A round has 12 questions. You may use only the official Presidents Chart.</p>' +
       '<p>In 2026-27, Elementary and Middle Divisions play Group B: #16&ndash;24 in the first round and #25&ndash;33 in the second. The theme for all divisions is Secretaries of State. The 4- or 2-point clues may mention a Secretary of State.</p></div>' +
       '<div class="card"><h3>Where the questions come from</h3><p>All content comes from the Academic Games Leagues of America (AGLOA):</p><ul class="facts">' +
-        '<li><a href="https://agloa.org/pres-docs/" target="_blank" rel="noopener">Presidents Rules and Documents</a>: the 2026-27 rules, the Presidents Chart, the 25 Group B worksheets, their answer key, and the official practice questions.</li>' +
+        '<li><a href="https://agloa.org/pres-docs/" target="_blank" rel="noopener">Presidents Rules and Documents</a>: the 2026-27 rules, the Presidents Chart, the 25 Group B worksheets, and the official practice questions.</li>' +
         '<li><a href="https://agloa.org/category/pres-quiz/" target="_blank" rel="noopener">AGLOA Presidents Quiz archive</a> (2015-2021).</li></ul>' +
-        '<p class="small muted">A few answer-key mistakes were corrected. Those facts say "Corrected" in their note. Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
+        '<p class="small muted">Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
       '<div class="card"><h3>Your progress</h3><p>' + facts + " facts practiced, " + rounds + ' rounds played. Progress is saved only in this browser.</p>' +
         '<button class="btn secondary" id="reset">Reset my progress</button></div>'
     );

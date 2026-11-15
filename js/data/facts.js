@@ -6,8 +6,8 @@
  * Each item: [text, answers, note?]
  *   answers: array of president numbers. "C" = Grover Cleveland, either term (22 or 24).
  *   When an item applies to several presidents, ALL of them are listed (select all that apply).
- *   note: extra info shown after answering. Notes that start with "Corrected:" mark places where
- *   this app differs from the AGLOA answer key - see docs/SOURCES.md for the full list.
+ *   note: extra info shown after answering. A few answers differ from the AGLOA answer key;
+ *   docs/SOURCES.md lists them (kept out of the app on purpose).
  *
  * tier: how revealing a clue built from this sheet is, for practice rounds (6 = hard, 4 = medium, 2 = easy).
  * clue: first-person template used when the fact is turned into a tournament-style clue.
@@ -61,7 +61,7 @@ window.SHEETS = [
       ["Secretary of the Interior Carl Schurz: opposed the transfer of the Office of Indian Affairs to the War Department.", [19]],
       ["Secretary of War Edwin Stanton: worked with the Joint Committee on the Conduct of the War to make the department more efficient.", [16, 17]],
       ["Secretary of the Interior Harold Ickes: directed the Public Works Administration, which provided employment during the Great Depression.", [32]],
-      ["Secretary of the Interior Albert Fall: accepted bribes for oil leases in the Teapot Dome Scandal.", [29], "Corrected: the answer key lists 29, 30. Fall resigned in March 1923, before Coolidge took office."],
+      ["Secretary of the Interior Albert Fall: accepted bribes for oil leases in the Teapot Dome Scandal.", [29], "Fall resigned in March 1923, before Coolidge took office."],
       ["Attorney General Harry Daugherty: resigned at the insistence of the new president because of his alleged involvement in the Teapot Dome Scandal.", [29, 30]],
       ["Secretary of War Henry Stimson: Republican appointed by a Democratic president to ensure bipartisan support for the U.S.'s inevitable entry into World War II.", [27, 32, 33], "Stimson was Secretary of War for Taft, and again for FDR and Truman."],
       ["Secretary of the Treasury Andrew Mellon: focused on paying off World War I debts, reducing taxes, and dealing with the fallout from the Stock Market collapse.", [29, 30, 31]],
@@ -220,11 +220,11 @@ window.SHEETS = [
       ["A newspaper story accused the Democratic presidential candidate of fathering an illegitimate child.", [21], "The 1884 campaign, during Arthur's term. The candidate was Grover Cleveland."],
       ["The president was criticized because he hired a substitute to serve for him in the Civil War.", [22]],
       ["After the death of his wife Carrie, the former president married his late wife's niece, Mary, who was 25 years younger than he. His children shunned the wedding.", [23], "This is about Benjamin Harrison (the wedding was in 1896)."],
-      ["The president sent U.S. forces to occupy the Philippines, which started a brutal war to repress the insurgents who were fighting for independence.", [25], "Corrected: the answer key lists 24. The Philippine occupation began under McKinley (1898-99)."],
+      ["The president sent U.S. forces to occupy the Philippines, which started a brutal war to repress the insurgents who were fighting for independence.", [25], "The Philippine occupation began under McKinley (1898-99)."],
       ["The president helped organize a revolution in Colombia that resulted in the new nation of Panama, which accepted U.S. payment for the right to build a canal through the new nation.", [26]],
       ["The Pinchot-Ballinger Affair split the Republican Party over conservation issues.", [27]],
       ["Secretary of the Interior Albert Fall accepted bribes from Harry Sinclair for control of the Teapot Dome federal oil reserves in Wyoming.", [29]],
-      ["Following the resignation of his cabinet position, Albert Fall was sentenced to a year in prison after his conviction for conspiracy and bribery.", [31], "Corrected: the answer key lists 30. Fall was convicted and sentenced in 1929, after Hoover took office."],
+      ["Following the resignation of his cabinet position, Albert Fall was sentenced to a year in prison after his conviction for conspiracy and bribery.", [31], "Fall was convicted and sentenced in 1929, after Hoover took office."],
       ["Attorney General Harry Daugherty resigned after an investigation into a bootlegging kickback scheme.", [30]],
       ["The president was criticized for sending the army to disperse the \"Bonus Army\" from government property where they were demanding the bonus Congress had passed for World War I veterans.", [31]],
       ["Lucy Mercer, not his wife, was present when the president died.", [32]],
@@ -297,7 +297,7 @@ window.SHEETS = [
       ["Real estate agent in St. Louis", [18]],
       ["School teacher", [20, 21]],
       ["Indianapolis City Attorney", [23]],
-      ["State governor", [17, 19, "C"], "Corrected: the answer key lists only Hayes and Cleveland. Andrew Johnson was also elected governor of Tennessee (1853-1857)."],
+      ["State governor", [17, 19, "C"], "Andrew Johnson was elected governor of Tennessee (1853-1857) before becoming its military governor."],
       ["Tailor", [17]],
       ["Worked on canal boats", [20]],
       ["Cincinnati City Solicitor", [19]],
@@ -310,10 +310,10 @@ window.SHEETS = [
       ["Postmaster of New Salem", [16]],
       ["General in the U.S. Army", [18, 19, 20, 21, 23]],
       ["Principal of the Eclectic Institute", [20]],
-      ["Member of the U.S. House of Representatives", [16, 17, 19, 20], "Corrected: the answer key lists 16, 19, 20. Andrew Johnson also served in the U.S. House (1843-1853)."],
+      ["Member of the U.S. House of Representatives", [16, 17, 19, 20], "Andrew Johnson served in the U.S. House from 1843 to 1853."],
       ["Private in the Independent Spy Corps during the Black Hawk War", [16]],
       ["Lieutenant in the U.S. Army upon graduation from West Point", [18]],
-      ["Member of his state legislature", [16, 17, 20], "Corrected: the answer key lists 16, 17. Garfield also served in the Ohio State Senate (1860-1861)."],
+      ["Member of his state legislature", [16, 17, 20], "Garfield served in the Ohio State Senate (1860-1861)."],
       ["Quartermaster General in the New York Volunteers", [21]],
       ["U.S. Senator", [17, 23]],
       ["A congressional member of the bipartisan Electoral Commission to resolve the disputed 1876 presidential election", [20]]
@@ -361,7 +361,7 @@ window.SHEETS = [
       ["Member of the U.S. House of Representatives", [25]],
       ["U.S. Solicitor General", [27]],
       ["Vice presidential candidate who lost", [32]],
-      ["Captain in an artillery regiment", [33], "Corrected: the answer key has a typo (\"233\")."],
+      ["Captain in an artillery regiment", [33]],
       ["President of the New York City Police Board", [26]],
       ["Member of the U.S. Civil Service Commission", [26]],
       ["Judge of the Sixth U.S. Court of Appeals", [27]],
@@ -580,7 +580,7 @@ window.SHEETS = [
       ["Executive Order 9981 desegregated the military.", [33], "July 26, 1948"],
       ["The president tried to implement his \"Fair Deal,\" but most proposals didn't pass.", [33], "1949"],
       ["Senator Joseph McCarthy accused hundreds of Americans of being \"communists\" or \"communist sympathizers.\"", [33], "1950-1954"],
-      ["The 22nd Amendment established term limits for presidents.", [33], "Corrected: the answer key lists 29. The 22nd Amendment was ratified February 27, 1951, under Truman."]
+      ["The 22nd Amendment established term limits for presidents.", [33], "Ratified February 27, 1951."]
     ]
   },
   {
@@ -658,7 +658,7 @@ window.SHEETS = [
       ["Do-nothing Congress", [33], "1948"],
       ["Rejuvenated Republicanism", [23], "1888"],
       ["Vote yourself a farm and horses", [16], "1860"],
-      ["A Square Deal All Around", [26], "Corrected: the answer key lists 1912 (26, 27, 28). \"A Square Deal All Around\" was Theodore Roosevelt's 1904 slogan."],
+      ["A Square Deal All Around", [26], "1904"],
       ["A chicken in every pot and a car in every garage", [31], "1928"],
       ["In God we trust; with Bryan we bust.", [25], "1896"],
       ["Grant Us Another Term", [18], "1872"],
@@ -705,7 +705,7 @@ window.SHEETS = [
       ["My wife's father and grandfather both served in Congress.", [27]],
       ["My daughter Margaret wrote several books.", [33]],
       ["My daughter Nellie was married in the White House.", [18]],
-      ["My father, a clergyman, died when I was 16.", ["C"], "Corrected: the answer key misnumbers this item as \"21.\""],
+      ["My father, a clergyman, died when I was 16.", ["C"]],
       ["My father died from exhaustion and a cold after saving two men from drowning.", [17]],
       ["My father emigrated from Ireland and became a Baptist minister.", [21]],
       ["My father died before I was born, so my wealthy uncle Sardis helped raise me.", [19]],

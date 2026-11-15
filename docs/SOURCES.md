@@ -20,7 +20,7 @@ Brother Neal Golden, S.C., wrote AGLOA's PRESIDENTS training materials for many 
 
 ## Answer-key corrections
 
-These items differ from the AGLOA answer key. Each one also has a note starting "Corrected:" in `js/data/facts.js`, and the app shows that note after the item is answered.
+These items differ from the AGLOA answer key. This list is for coaches; the app itself does not mention the answer key or these corrections. Where it helps, the app shows a short history note instead (for example, "Ratified February 27, 1951").
 
 | Item | Answer key | This app | Reason |
 |---|---|---|---|
