@@ -463,17 +463,22 @@
         sw("timer", s.timer, "⏱️ 30-second timer", "Each clue in a tournament round gets 30 seconds, like a real round.") +
         sw("theme", s.theme, "🎩 Theme clues", "Put Secretaries of State in the 4- and 2-point clues (2026-27 theme).") +
       "</div>" +
-      '<button class="btn secondary" id="test">Test the sound</button>' +
+      '<button class="btn secondary" id="test">Test the sound</button><p class="small" id="soundNote" role="status" style="color:var(--red);margin-top:8px"></p>' +
       '<p class="small muted" style="margin-top:14px">Reset buttons are on the <a href="#/about">About</a> page.</p>'
     );
     on("#sound", "change", function (e) { Store.set("sound", e.target.checked); if (e.target.checked) Sound.correct(6); });
     on("#timer", "change", function (e) { Store.set("timer", e.target.checked); Sound.tap(); });
     on("#theme", "change", function (e) { Store.set("theme", e.target.checked); Sound.tap(); });
-    on("#test", "click", function () { Sound.correct(6); if (!Store.settings().sound) alert("Sound is off. Turn on Sound effects first."); });
+    on("#test", "click", function () {
+      Sound.correct(6);
+      // No pop-up dialogs: some app previews and home-screen apps block them.
+      var n = app.querySelector("#soundNote");
+      if (n) n.textContent = Store.settings().sound ? "" : "Sound is off. Turn on Sound effects first.";
+    });
   }
 
   /* ---------- About ---------- */
-  function about() {
+  function about(notice) {
     var rounds = Store.rounds().length, facts = Object.keys(Store.allFacts()).length;
     var misses = E.missedItems(RANGES.all).length;
     render(
@@ -485,16 +490,30 @@
         '<li><a href="https://agloa.org/category/pres-quiz/" target="_blank" rel="noopener">AGLOA Presidents Quiz archive</a> (2015-2021).</li></ul>' +
         '<p class="small muted" style="margin:8px 0 0">Tournament-round questions mix AGLOA clues from different worksheets, so they are practice, not official questions (except the ones marked official). This app is not made by AGLOA.</p></div>' +
       '<div class="card"><span class="tape" style="left:64%"></span><h3>Your progress</h3><p>' + facts + " facts practiced, " + rounds + ' rounds played. Progress is saved only in this browser.</p>' +
-        '<div class="row"><button class="btn secondary" id="resetMisses"' + (misses ? "" : " disabled") + ">Reset my misses" + (misses ? " (" + misses + ")" : "") + "</button>" +
-        '<button class="btn secondary" id="reset">Reset my progress</button></div>' +
+        '<div id="resetArea"><div class="row"><button class="btn secondary" id="resetMisses"' + (misses ? "" : " disabled") + ">Reset my misses" + (misses ? " (" + misses + ")" : "") + "</button>" +
+        '<button class="btn secondary" id="reset">Reset my progress</button></div></div>' +
+        (notice ? '<p class="small" role="status" style="color:var(--green);font-weight:800;margin:10px 0 0">' + notice + "</p>" : "") +
         '<p class="small muted" style="margin:10px 0 0">Reset my misses empties the Review My Misses list but keeps everything else. Reset my progress erases all progress and round scores.</p></div>' +
-      pat("Hi! I'm <b>Pat</b>, short for Patriot. Happy studying!")
+      pat("Hi! I'm <b>Pat</b>, short for Patriot. Happy studying!"), notice !== undefined   // stay in place after a reset or Cancel
     );
+    /* Ask "Are you sure?" inside the page instead of a browser pop-up, which some
+       app previews and home-screen apps block (they silently answer "no"). */
+    function ask(question, yesLabel, action, done) {
+      var area = app.querySelector("#resetArea");
+      area.innerHTML = '<div class="feedback no" role="alertdialog" aria-label="Are you sure?"><div class="head">Are you sure?</div>' + question +
+        '<div class="row" style="margin-top:10px"><button class="btn" id="confirmYes">' + yesLabel + '</button>' +
+        '<button class="btn secondary" id="confirmNo">Cancel</button></div></div>';
+      area.querySelector("#confirmNo").addEventListener("click", function () { about(""); });
+      area.querySelector("#confirmYes").addEventListener("click", function () { action(); Sound.tap(); about(done); });
+      area.querySelector("#confirmNo").focus();
+    }
     on("#resetMisses", "click", function () {
-      if (confirm("Clear your missed facts list? Your other progress stays.")) { Store.clearMisses(); about(); }
+      ask("This clears your Review My Misses list. Everything else stays.", "Yes, reset my misses",
+        function () { Store.clearMisses(); }, "Done! Your misses list is empty.");
     });
     on("#reset", "click", function () {
-      if (confirm("Erase all progress on this device?")) { Store.reset(); about(); }
+      ask("This erases all your progress and round scores on this device. It can't be undone.", "Yes, erase everything",
+        function () { Store.reset(); }, "Done! All progress was erased.");
     });
   }
 
