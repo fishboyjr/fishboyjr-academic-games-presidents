@@ -192,3 +192,15 @@ table.results th, table.results td { text-align: left; padding: 8px 6px; border-
 
 .switch { display: flex; align-items: center; gap: 10px; padding: 8px 0; cursor: pointer; }
 .switch input { width: 22px; height: 22px; }
+
+/* Study page: president number and name stay visible while scrolling */
+.study-head {
+  position: sticky; top: var(--topbar-h, 60px); z-index: 5;
+  display: flex; align-items: center; gap: 4px;
+  margin: -18px -16px 12px; padding: 10px 8px;
+  background: var(--cream); border-bottom: 1px solid var(--line);
+}
+.study-head h1 { flex: 1; margin: 0; text-align: center; font-size: 1.35rem; }
+.study-head .pnum { color: var(--red); }
+.study-head .btn.ghost { flex: 0 0 auto; min-width: 56px; padding: 8px 6px; }
+.study-head .navpad { flex: 0 0 56px; }

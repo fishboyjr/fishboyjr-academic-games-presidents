@@ -327,9 +327,12 @@
     var quiz = (window.QUIZ_CLUES || []).filter(function (q) { return E.concrete([q.a]).indexOf(n) >= 0; });
     var prev = E.byNum[n - 1] ? n - 1 : null, next = E.byNum[n + 1] ? n + 1 : null;
     render(
-      '<div class="row" style="margin-bottom:8px">' + (prev ? '<a class="btn ghost" href="#/study/' + prev + '">&larr; #' + prev + "</a>" : "") +
-      '<span class="spacer"></span>' + (next ? '<a class="btn ghost" href="#/study/' + next + '">#' + next + " &rarr;</a>" : "") + "</div>" +
-      "<h1>#" + p.n + " " + esc(p.name) + "</h1>" +
+      // Header stays pinned under the top bar while scrolling through the facts.
+      '<div class="study-head">' +
+        (prev ? '<a class="btn ghost" href="#/study/' + prev + '" aria-label="Previous: #' + prev + '">&larr; ' + prev + "</a>" : '<span class="navpad"></span>') +
+        '<h1><span class="pnum">#' + p.n + "</span> " + esc(p.name) + "</h1>" +
+        (next ? '<a class="btn ghost" href="#/study/' + next + '" aria-label="Next: #' + next + '">' + next + " &rarr;</a>" : '<span class="navpad"></span>') +
+      "</div>" +
       (n === 22 || n === 24 ? '<p class="muted">Grover Cleveland served two terms that were not back to back, so he is both #22 and #24.</p>' : "") +
       '<div class="card"><h3>From the Presidents Chart</h3><dl class="chart">' +
         "<dt>Lived</dt><dd>" + esc(p.lived) + "</dd><dt>Born in</dt><dd>" + esc(p.born) + "</dd><dt>Died in</dt><dd>" + esc(p.died) +
@@ -393,6 +396,14 @@
       default: return notFound();
     }
   }
+  /* Let pinned headers sit right under the top bar, whatever its height. */
+  function measureTopbar() {
+    var bar = document.querySelector(".topbar");
+    if (bar) document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px");
+  }
+  window.addEventListener("resize", measureTopbar);
+  measureTopbar();
+
   window.addEventListener("hashchange", route);
   route();
 })();
